@@ -3,29 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#47b9ff" />
-    <title>Sky Tap</title>
+    <meta name="theme-color" content="#b80e0e" />
+    <meta
+      name="description"
+      content="Jogo arcade mobile estilo Flappy Hot Dog para jogar no navegador."
+    />
+    <title>Hot Dog Dash</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="game-shell" aria-label="Jogo Sky Tap">
-      <canvas id="game" aria-label="Toque para voar e desviar dos canos"></canvas>
+    <main class="app" aria-label="Hot Dog Dash">
+      <canvas id="game" aria-label="Area do jogo"></canvas>
 
-      <section class="hud" aria-live="polite">
-        <div class="score-card">
-          <span class="label">Pontos</span>
-          <strong id="score">0</strong>
+      <div class="score" id="score">0</div>
+
+      <button class="sound-button" id="soundButton" type="button" aria-label="Silenciar som">
+        🔊
+      </button>
+
+      <section class="screen start-screen" id="startScreen">
+        <img
+          class="brand-logo"
+          src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
+          alt="O Mega Dogao"
+        />
+
+        <div class="title-stack">
+          <h1>Flappy</h1>
+          <h2><span id="titleCharacter">Hot Dog</span> <span id="titleEmoji">🌭</span></h2>
         </div>
-        <div class="score-card">
-          <span class="label">Recorde</span>
-          <strong id="best">0</strong>
+
+        <div class="hero-character" id="heroCharacter">🌭</div>
+        <p class="record" id="recordLine">RECORDE: 0</p>
+
+        <div class="chooser">
+          <p>ESCOLHA SEU PERSONAGEM</p>
+          <div class="card-row" id="characterOptions"></div>
         </div>
+
+        <div class="chooser">
+          <p>DIFICULDADE</p>
+          <div class="card-row" id="difficultyOptions"></div>
+        </div>
+
+        <button class="play-button" id="playButton" type="button">▶ JOGAR</button>
+        <p class="hint">TOQUE OU PRESSIONE ESPACO</p>
+
+        <footer>PATROCINADO POR <strong>O MEGA DOGAO</strong> DESDE 2000</footer>
       </section>
 
-      <section class="overlay" id="overlay">
-        <h1>Sky Tap</h1>
-        <p id="message">Toque para comecar</p>
-        <button id="start" type="button">Jogar</button>
+      <section class="screen gameover-screen hidden" id="gameoverScreen">
+        <div class="gameover-card">
+          <img
+            src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
+            alt="O Mega Dogao"
+          />
+          <div class="result-emoji" id="resultEmoji">💥</div>
+          <h2 id="resultTitle">O CACHORRO PEGOU!</h2>
+          <p class="new-record hidden" id="newRecord">★ NOVO RECORDE! ★</p>
+
+          <div class="result-grid">
+            <div>
+              <span>PONTOS</span>
+              <strong id="finalScore">0</strong>
+            </div>
+            <div>
+              <span>RECORDE</span>
+              <strong id="bestScore">0</strong>
+            </div>
+          </div>
+
+          <button class="again-button" id="againButton" type="button">↻ DE NOVO!</button>
+          <p class="card-footer">O MEGA DOGAO - DESDE 2000</p>
+        </div>
       </section>
     </main>
 
