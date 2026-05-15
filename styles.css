@@ -460,6 +460,47 @@ canvas#gameCanvas {
   color: #86efac;
 }
 
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  border-radius: 999px;
+  font-size: 18px;
+  text-decoration: none;
+  margin-bottom: 10px;
+  font-family: 'Fredoka One', system-ui, sans-serif;
+}
+
+.instagram-button {
+  background: linear-gradient(90deg, #833ab4, #fd1d1d, #fcb045);
+  color: white;
+  box-shadow: 0 8px 18px rgba(131, 58, 180, 0.28);
+}
+
+.facebook-button {
+  background: #1877f2;
+  color: white;
+  box-shadow: 0 8px 18px rgba(24, 119, 242, 0.28);
+}
+
+.skip-social-button {
+  margin-top: 8px;
+  color: #9ca3af;
+  background: transparent;
+  border: 0;
+  font-family: "Press Start 2P", monospace;
+  font-size: 7px;
+  cursor: pointer;
+  width: 100%;
+  padding: 10px;
+}
+
+.skip-social-button:hover, .skip-social-button:active {
+  color: var(--yellow);
+}
+
 .play-button:active, .again-button:active { transform: scale(0.94); }
 
 .hint {

@@ -15,6 +15,7 @@ const GAMES = [
   },
 ];
 
+const socialScreen = document.getElementById("socialScreen");
 const menuScreen = document.getElementById("menuScreen");
 const gameContainer = document.getElementById("gameContainer");
 const backButton = document.getElementById("backButton");
@@ -22,6 +23,15 @@ const gameList = document.getElementById("gameList");
 
 let currentGame = null;
 let gameInstances = {};
+
+function closeSocial() {
+  socialScreen.classList.add("hidden");
+  menuScreen.classList.remove("hidden");
+}
+
+document.getElementById("socialSkip").addEventListener("click", closeSocial);
+document.getElementById("socialInsta").addEventListener("click", closeSocial);
+document.getElementById("socialFace").addEventListener("click", closeSocial);
 
 function renderMenu() {
   gameList.innerHTML = "";
