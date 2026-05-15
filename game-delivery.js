@@ -10,25 +10,15 @@ class DeliveryGame {
     ];
     this.setupCanvas(); this.init();
   }
-  setupCanvas() { this.canvas.width = 400; this.canvas.height = 600; this.canvas.style.cssText = "width:100%;height:100%;display:block;"; }
+  setupCanvas() { this.canvas.width = 480; this.canvas.height = 640; this.canvas.style.cssText = "width:100%;height:100%;display:block;"; }
   init() {
     this.state = {
       mode: "start", score: 0, highScore: Number(localStorage.getItem("delivery_high")||0),
-      character: "hotdog", difficulty: "medium", lives: 3, deliveries: 0, combo: 0,
-      bikeX: 200, targetX: 200, moving: false, cars: [], frame: 0, spawnTimer: 0, scrollY: 0,
-      horizon: 155, roadTopW: 60, roadBotW: 300
+      character: "hotdog", difficulty: "medium", lives: 3, deliveries: 0, combo: 0, frame: 0,
+      bikeX: 240, bikeY: 580, targetX: 240, targetY: 580, movingX: false, movingY: false,
+      cars: [], spawnTimer: 0, scrollY: 0
     };
-    this.BUILDINGS = [];
-    for (let side = -1; side <= 1; side += 2) {
-      for (let i = 0; i < 6; i++) {
-        this.BUILDINGS.push({
-          side, z: i * 80 + Math.random() * 30,
-          w: 35 + Math.random() * 25, h: 80 + Math.random() * 140,
-          color: ["#1a1a2e","#16213e","#0f3460","#533483","#2d2d44","#1f1f35"][Math.floor(Math.random()*6)],
-          windows: Math.floor(2 + Math.random() * 3)
-        });
-      }
-    }
+    this.ROAD = { left: 100, right: 380, center: 240 };
     this.createUI(); this.bindEvents(); this.render(); this._last = performance.now(); this.loop();
   }
   createUI() {
@@ -95,23 +85,10 @@ class DeliveryGame {
       el.appendChild(b);
     }
   }
-  projectX(z, x) {
-    const s = this.state;
-    const t = 1 - z / 600;
-    const center = s.horizon + (s.canvas.height - s.horizon) * (1 - t);
-    const roadW = s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - t);
-    return s.canvas.width / 2 + (x - s.canvas.width / 2) * roadW / s.roadBotW;
-  }
-  projectY(z) {
-    const s = this.state;
-    const t = 1 - z / 600;
-    return s.horizon + (s.canvas.height - s.horizon) * (1 - t);
-  }
-  scale(z) { return 1 - z / 600; }
   startGame() {
     this.state.mode = "playing"; this.state.score = 0; this.state.lives = 3; this.state.deliveries = 0;
-    this.state.combo = 0; this.state.cars = []; this.state.frame = 0; this.state.spawnTimer = 0; this.state.scrollY = 0;
-    this.state.bikeX = 200; this.state.targetX = 200;
+    this.state.combo = 0; this.state.cars = []; this.state.frame = 0; this.state.spawnTimer = 0;
+    this.state.bikeX = 240; this.state.bikeY = 580; this.state.targetX = 240; this.state.targetY = 580;
     this.scoreEl.textContent = "0"; this.livesEl.textContent = "3"; this.highEl.textContent = this.state.highScore;
     this.startScr.classList.add("hidden"); this.overScr.classList.add("hidden");
     this.scorebar.style.display = "flex"; this.playMusic();
@@ -128,37 +105,41 @@ class DeliveryGame {
   updateGame() {
     if (this.state.mode !== "playing") return;
     this.state.frame++;
-    const w = this.canvas.width;
-    const speed = {easy:2.5,medium:3.5,hard:5}[this.state.difficulty] || 3.5;
-    const carRate = {easy:65,medium:45,hard:30}[this.state.difficulty] || 45;
-    this.state.scrollY = (this.state.scrollY + speed * 0.5) % 600;
-    if (this.state.moving) {
+    const r = this.ROAD;
+    const speed = {easy:2,medium:3,hard:4.5}[this.state.difficulty] || 3;
+    const carRate = {easy:55,medium:38,hard:25}[this.state.difficulty] || 38;
+    if (this.state.movingX) {
       const dx = this.state.targetX - this.state.bikeX;
-      if (Math.abs(dx) > 3) this.state.bikeX += Math.sign(dx) * 5;
-      else { this.state.bikeX = this.state.targetX; this.state.moving = false; }
+      if (Math.abs(dx) > 2) this.state.bikeX += Math.sign(dx) * 4;
+      else { this.state.bikeX = this.state.targetX; this.state.movingX = false; }
     }
-    const roadEdge = 50;
-    this.state.bikeX = Math.max(roadEdge + 20, Math.min(w - roadEdge - 20, this.state.bikeX));
+    if (this.state.movingY) {
+      const dy = this.state.targetY - this.state.bikeY;
+      if (Math.abs(dy) > 2) this.state.bikeY += Math.sign(dy) * 4;
+      else { this.state.bikeY = this.state.targetY; this.state.movingY = false; }
+    }
+    this.state.bikeX = Math.max(r.left + 18, Math.min(r.right - 18, this.state.bikeX));
+    this.state.bikeY = Math.max(100, Math.min(620, this.state.bikeY));
+    const w = this.canvas.width, h = this.canvas.height;
     this.state.spawnTimer++;
     if (this.state.spawnTimer >= carRate) {
       this.state.spawnTimer = 0;
-      const laneOff = -60 + Math.floor(Math.random() * 3) * 60;
-      const type = Math.random() > 0.5 ? "car" : "truck";
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      const laneX = r.left + 30 + Math.floor(Math.random() * 4) * 52;
+      const laneY = dir === 1 ? -60 : h + 60;
+      const isTruck = Math.random() > 0.6;
       this.state.cars.push({
-        z: -50, x: w / 2 + laneOff, type,
-        color: ["#C81010","#2563eb","#16a34a","#D4903C","#7c3aed","#e11d48"][Math.floor(Math.random()*6)],
-        speed: speed + (Math.random() * 0.6 + 0.4), wobble: Math.random() * 0.3 - 0.15
+        x: laneX, y: laneY, w: isTruck ? 44 : 32, h: isTruck ? 56 : 40, dir,
+        type: isTruck ? "truck" : "car",
+        color: ["#C81010","#2563eb","#16a34a","#D4903C","#7c3aed","#e11d48","#0891b2","#4f46e5"][Math.floor(Math.random()*8)],
+        speed: speed + Math.random() * 0.8 + 0.3
       });
     }
-    for (const c of this.state.cars) c.z += c.speed;
-    this.state.cars = this.state.cars.filter(c => c.z < 600);
-    const bz = 520, bx = this.state.bikeX;
+    for (const c of this.state.cars) c.y += c.speed * c.dir;
+    this.state.cars = this.state.cars.filter(c => c.y > -100 && c.y < h + 100);
+    const bx = this.state.bikeX, by = this.state.bikeY;
     for (const c of this.state.cars) {
-      const cz = c.z;
-      if (cz < 0 || cz > 600) continue;
-      const ch = c.type === "truck" ? 100 : 70, cw = c.type === "truck" ? 50 : 38;
-      const dx = Math.abs(bx - c.x), dz = Math.abs(bz - cz);
-      if (dx < cw / 2 + 14 && dz < ch / 2 + 16) {
+      if (bx - 14 < c.x + c.w && bx + 14 > c.x && by - 16 < c.y + c.h && by + 16 > c.y) {
         this.state.lives--; this.livesEl.textContent = this.state.lives; this.playCrash();
         this.state.cars = this.state.cars.filter(cc => cc !== c);
         this.state.combo = 0;
@@ -169,132 +150,111 @@ class DeliveryGame {
     const lastDel = Math.floor((this.state.frame - 1) / 180);
     if (this.state.deliveries > lastDel) { this.state.score += 10 + this.state.combo * 2; this.state.combo++; this.scoreEl.textContent = this.state.score; this.playScore(); }
   }
-  drawRoad() {
-    const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height, s = this.state;
-    ctx.fillStyle = "#87CEEB"; ctx.fillRect(0, 0, w, s.horizon);
-    ctx.fillStyle = "#b4d9e8"; ctx.fillRect(0, s.horizon - 2, w, 4);
-    const grad = ctx.createLinearGradient(0, s.horizon, 0, h);
-    grad.addColorStop(0, "#4a4a4a"); grad.addColorStop(0.3, "#3a3a3a"); grad.addColorStop(1, "#2a2a2a");
-    ctx.fillStyle = grad; ctx.fillRect(0, s.horizon, w, h - s.horizon);
-    for (const b of this.BUILDINGS) {
-      const t = 1 - b.z / 600;
-      if (t <= 0 || t >= 1) continue;
-      const by = s.horizon + (h - s.horizon) * (1 - t);
-      const bw = b.w * t;
-      const bh = b.h * t;
-      const bx = b.side === -1
-        ? w / 2 - (s.roadBotW / 2 + b.w) * t - bw / 2
-        : w / 2 + (s.roadBotW / 2) * t - bw / 2;
+  drawBuildings() {
+    const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height, r = this.ROAD;
+    ctx.fillStyle = "#3a7a3a"; ctx.fillRect(0, 0, r.left, h);
+    ctx.fillRect(r.right, 0, w - r.right, h);
+    ctx.fillStyle = "#5a5a3a"; ctx.fillRect(0, 0, r.left, h);
+    ctx.fillRect(r.right, 0, w - r.right, h);
+    const buildings = [
+      {x:4,y:20,w:88,h:70,color:"#6b4c3b"},
+      {x:4,y:104,w:88,h:90,color:"#5a5a6a"},
+      {x:4,y:208,w:88,h:60,color:"#4a6b4a"},
+      {x:4,y:282,w:88,h:100,color:"#6a4a5a"},
+      {x:4,y:396,w:88,h:80,color:"#5a6a6a"},
+      {x:4,y:490,w:88,h:70,color:"#6b5a4a"},
+      {x:4,y:574,w:88,h:60,color:"#4a5a6a"},
+      {x:r.right+4,y:20,w:88,h:85,color:"#5a6a4a"},
+      {x:r.right+4,y:118,w:88,h:65,color:"#6a5a5a"},
+      {x:r.right+4,y:196,w:88,h:95,color:"#4a6a6a"},
+      {x:r.right+4,y:304,w:88,h:70,color:"#6b4b4b"},
+      {x:r.right+4,y:388,w:88,h:85,color:"#5b6b4b"},
+      {x:r.right+4,y:486,w:88,h:75,color:"#6a5b6a"},
+      {x:r.right+4,y:574,w:88,h:60,color:"#4b5b6b"},
+    ];
+    for (const b of buildings) {
       ctx.fillStyle = b.color;
-      ctx.fillRect(bx, by - bh, bw, bh);
-      ctx.strokeStyle = "rgba(255,215,0,0.08)"; ctx.lineWidth = 1;
-      ctx.strokeRect(bx, by - bh, bw, bh);
-      ctx.fillStyle = "rgba(255,215,0,0.15)";
-      const ww = 4 * t, wh = 6 * t, pad = 3 * t;
-      for (let r = 0; r < b.windows && r < 4; r++) {
-        for (let c = 0; c < 2; c++) {
-          const lx = bx + pad + c * (ww + pad * 2);
-          const ly = by - bh + pad + r * (wh + pad * 2);
-          if (lx + ww < bx + bw - 2 && ly + wh < by - 2) ctx.fillRect(lx, ly, Math.max(1, ww), Math.max(1, wh));
-        }
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1;
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = "#facc15";
+      ctx.fillRect(b.x + 2, b.y + 2, b.w - 4, 6);
+      ctx.fillStyle = "rgba(255,215,0,0.2)";
+      for (let r2 = 0; r2 < 3; r2++) for (let c2 = 0; c2 < 3; c2++) {
+        ctx.fillRect(b.x + 6 + c2 * 26, b.y + 14 + r2 * 22, 10, 12);
       }
     }
-    for (let seg = 0; seg < 40; seg++) {
-      const z1 = (seg / 40) * 600 + s.scrollY % 75;
-      if (z1 > 600) continue;
-      const t = 1 - z1 / 600;
-      if (t <= 0) continue;
-      const yy = s.horizon + (h - s.horizon) * (1 - t);
-      const rw = s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - t);
-      const lx = w / 2 - rw / 2, rx = w / 2 + rw / 2;
-      ctx.strokeStyle = "#facc15"; ctx.lineWidth = Math.max(1, 2 * t);
-      ctx.beginPath(); ctx.moveTo(lx, yy); ctx.lineTo(rx, yy); ctx.stroke();
-    }
-    const topT = 0.08;
-    const lt = w / 2 - (s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - topT)) / 2;
-    const rt = w / 2 + (s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - topT)) / 2;
-    const yt = s.horizon + (h - s.horizon) * (1 - topT);
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(lt, yt); ctx.lineTo(w/2 - s.roadBotW/2, h); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rt, yt); ctx.lineTo(w/2 + s.roadBotW/2, h); ctx.stroke();
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.setLineDash([10, 20]); ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(w/2, s.horizon + 10); ctx.lineTo(w/2, h); ctx.stroke();
+    ctx.fillStyle = "#888";
+    ctx.fillRect(r.left - 6, 0, 6, h);
+    ctx.fillRect(r.right, 0, 6, h);
+  }
+  drawRoadSurface() {
+    const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height, r = this.ROAD;
+    ctx.fillStyle = "#555"; ctx.fillRect(r.left, 0, r.right - r.left, h);
+    ctx.fillStyle = "#4a4a4a";
+    for (let y = 0; y < h; y += 40) ctx.fillRect(r.left + 15, y, r.right - r.left - 30, 20);
+    ctx.strokeStyle = "#facc15"; ctx.lineWidth = 1;
+    ctx.setLineDash([20, 30]); ctx.beginPath(); ctx.moveTo(r.center, 0); ctx.lineTo(r.center, h); ctx.stroke();
     ctx.setLineDash([]);
+    ctx.fillStyle = "#fff";
+    for (let y = 0; y < h; y += 60) {
+      ctx.fillRect(r.left + 8, y, 4, 30);
+      ctx.fillRect(r.right - 12, y, 4, 30);
+    }
   }
   drawCar(c) {
-    const ctx = this.ctx, h = this.canvas.height, s = this.state;
-    if (c.z < 0 || c.z > 600) return;
-    const t = this.scale(c.z);
-    if (t <= 0.02) return;
-    const sy = this.projectY(c.z);
-    const sx = this.projectX(c.z, c.x);
-    const isTruck = c.type === "truck";
-    const cw = (isTruck ? 50 : 38) * t;
-    const ch = (isTruck ? 100 : 70) * t;
-    const wob = Math.sin(c.z * 0.15 + c.wobble) * 2 * t;
-    ctx.save(); ctx.translate(sx + wob, sy - ch/2);
-    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(-cw/2-2, -2, cw+4, ch+4, 4*t); ctx.fill();
+    const ctx = this.ctx;
+    ctx.save(); ctx.translate(c.x + c.w/2, c.y + c.h/2);
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(-c.w/2-2, -c.h/2-2, c.w+4, c.h+4, 3); ctx.fill();
     ctx.fillStyle = c.color;
-    ctx.beginPath(); ctx.roundRect(-cw/2, 0, cw, ch, 3*t); ctx.fill();
-    if (isTruck) {
-      ctx.fillStyle = "rgba(200,200,255,0.3)";
-      ctx.fillRect(-cw/2+3*t, ch*0.15, cw-6*t, ch*0.35);
-      ctx.fillRect(-cw/2+3*t, ch*0.55, cw-6*t, ch*0.2);
+    ctx.beginPath(); ctx.roundRect(-c.w/2, -c.h/2, c.w, c.h, 2); ctx.fill();
+    ctx.fillStyle = "rgba(200,230,255,0.35)";
+    if (c.type === "truck") {
+      ctx.fillRect(-c.w/2+3, -c.h*0.3, c.w-6, c.h*0.25);
+      ctx.fillRect(-c.w/2+3, c.h*0.05, c.w-6, c.h*0.25);
     } else {
-      ctx.fillStyle = "rgba(200,200,255,0.35)";
-      ctx.fillRect(-cw/2+3*t, ch*0.2, cw-6*t, ch*0.35);
+      ctx.fillRect(-c.w/2+3, -c.h*0.35, c.w-6, c.h*0.4);
     }
     ctx.fillStyle = "#111";
-    const wr = 3*t, wh = 4*t;
-    ctx.fillRect(-cw/2+2*t, ch - wh - 2*t, cw*0.25, wh);
-    ctx.fillRect(-cw/2+2*t, 2*t, cw*0.25, wh);
-    ctx.fillRect(cw/2-2*t - cw*0.25, ch - wh - 2*t, cw*0.25, wh);
-    ctx.fillRect(cw/2-2*t - cw*0.25, 2*t, cw*0.25, wh);
+    ctx.fillRect(-c.w/2+2, -c.h/2+2, 5, 4);
+    ctx.fillRect(c.w/2-7, -c.h/2+2, 5, 4);
+    ctx.fillRect(-c.w/2+2, c.h/2-6, 5, 4);
+    ctx.fillRect(c.w/2-7, c.h/2-6, 5, 4);
     ctx.fillStyle = "#facc15";
-    ctx.fillRect(-cw/2+1, ch*0.02, 2*t, 2*t);
-    ctx.fillRect(cw/2-1-2*t, ch*0.02, 2*t, 2*t);
-    ctx.fillRect(-cw/2+1, ch-2*t-2*t, 2*t, 2*t);
-    ctx.fillRect(cw/2-1-2*t, ch-2*t-2*t, 2*t, 2*t);
-    ctx.shadowColor = "rgba(0,0,0,0.3)"; ctx.shadowBlur = 8*t;
-    ctx.fillStyle = "rgba(0,0,0,0.15)";
-    ctx.beginPath(); ctx.ellipse(0, ch + 3*t, cw*0.35, 2*t, 0, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
+    ctx.fillRect(-c.w/2-1, -c.h/2+3, 2, 2);
+    ctx.fillRect(c.w/2-1, -c.h/2+3, 2, 2);
     ctx.restore();
   }
   drawBike() {
-    const ctx = this.ctx, s = this.state, h = this.canvas.height;
-    const bz = 520, bx = s.bikeX;
-    const t = this.scale(bz);
-    const sy = this.projectY(bz) - 10;
-    const sx = this.projectX(bz, bx);
-    const sc = 1.2 * t * (s.canvas.width / 400);
-    ctx.save(); ctx.translate(sx, sy);
-    ctx.scale(sc, sc);
-    ctx.fillStyle = "rgba(0,0,0,0.2)";
-    ctx.beginPath(); ctx.ellipse(0, 34, 22, 4, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(-14, 6, 28, 26, 6); ctx.fill();
-    ctx.fillStyle = "#555"; ctx.fillRect(-12, 10, 24, 8);
-    ctx.fillStyle = "#C81010"; ctx.beginPath(); ctx.roundRect(-4, 0, 8, 14, 2); ctx.fill();
-    ctx.strokeStyle = "#888"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-16, 18); ctx.quadraticCurveTo(-20, 24, -20, 30); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(16, 18); ctx.quadraticCurveTo(20, 24, 20, 30); ctx.stroke();
-    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.ellipse(-18, 31, 4, 4, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(18, 31, 4, 4, 0, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "#666"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(0, -2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-8, -4); ctx.lineTo(8, -4); ctx.stroke();
+    const ctx = this.ctx; const bx = this.state.bikeX, by = this.state.bikeY;
+    ctx.save(); ctx.translate(bx, by);
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.beginPath(); ctx.ellipse(0, 18, 18, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#C81010";
+    ctx.beginPath(); ctx.roundRect(-10, -18, 20, 34, 4); ctx.fill();
     ctx.fillStyle = "#facc15";
-    ctx.beginPath(); ctx.arc(0, -8, 4, 0, Math.PI, false); ctx.fill();
-    const ch = this.CHARACTERS.find(c => c.id === s.character) || this.CHARACTERS[0];
-    ctx.font = "18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(ch.emoji, 0, -6);
+    ctx.fillRect(-8, -16, 16, 5);
+    ctx.fillRect(-8, 12, 16, 5);
+    ctx.fillStyle = "#333";
+    ctx.fillRect(-2, -6, 4, 14);
+    ctx.fillStyle = "#222";
+    ctx.beginPath(); ctx.ellipse(-10, 16, 4, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(10, 16, 4, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#facc15";
+    ctx.beginPath(); ctx.arc(0, -16, 4, 0, Math.PI, false); ctx.fill();
+    ctx.strokeStyle = "#666"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-6, -20); ctx.lineTo(6, -20); ctx.stroke();
+    const ch = this.CHARACTERS.find(c => c.id === this.state.character) || this.CHARACTERS[0];
+    ctx.font = "14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(ch.emoji, 0, -7);
     ctx.restore();
   }
   render() {
-    const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
-    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0,0,w,h);
-    this.drawRoad();
+    const ctx = this.ctx; const w = this.canvas.width, h = this.canvas.height;
+    ctx.fillStyle = "#2d2d2d"; ctx.fillRect(0,0,w,h);
+    this.drawBuildings();
+    this.drawRoadSurface();
     for (const c of this.state.cars) this.drawCar(c);
     if (this.state.mode === "playing" || this.state.mode === "gameover") this.drawBike();
   }
@@ -336,8 +296,10 @@ class DeliveryGame {
   bindEvents() {
     this._kd = (e) => {
       if (this.state.mode === "playing") {
-        if (e.code === "ArrowLeft") { this.state.targetX = this.state.bikeX - 70; this.state.moving = true; }
-        if (e.code === "ArrowRight") { this.state.targetX = this.state.bikeX + 70; this.state.moving = true; }
+        if (e.code === "ArrowLeft") { this.state.targetX = this.state.bikeX - 50; this.state.movingX = true; }
+        if (e.code === "ArrowRight") { this.state.targetX = this.state.bikeX + 50; this.state.movingX = true; }
+        if (e.code === "ArrowUp") { this.state.targetY = this.state.bikeY - 50; this.state.movingY = true; }
+        if (e.code === "ArrowDown") { this.state.targetY = this.state.bikeY + 50; this.state.movingY = true; }
       }
       if ((e.code === "Space" || e.code === "Enter") && (this.state.mode === "start" || this.state.mode === "gameover")) this.startGame();
     };
@@ -345,7 +307,8 @@ class DeliveryGame {
       if (this.state.mode === "playing") {
         const rect = this.canvas.getBoundingClientRect();
         this.state.targetX = (e.clientX - rect.left) / rect.width * this.canvas.width;
-        this.state.moving = true;
+        this.state.targetY = (e.clientY - rect.top) / rect.height * this.canvas.height;
+        this.state.movingX = true; this.state.movingY = true;
       }
       if (this.state.mode === "start" || this.state.mode === "gameover") this.startGame();
     };
