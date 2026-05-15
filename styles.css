@@ -461,9 +461,18 @@ footer {
 
 footer strong { color: var(--yellow); }
 
-.gameover-screen {
+.gameover-screen, .dino-over {
   background: rgba(140, 0, 0, 0.82);
   backdrop-filter: blur(4px);
+}
+
+.dino-start {
+  background: linear-gradient(
+    to bottom,
+    rgba(200, 16, 16, 0.93) 0%,
+    rgba(180, 8, 8, 0.97) 60%,
+    rgba(140, 0, 0, 0.99) 100%
+  );
 }
 
 .checkin-screen {
