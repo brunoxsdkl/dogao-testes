@@ -116,8 +116,8 @@ class PacmanGame {
       cellSize: 0,
       offsetX: 0,
       offsetY: 0,
-      playerSpeed: 3.5,
-      ghostBaseSpeed: 1.2,
+      playerSpeed: 1.2,
+      ghostBaseSpeed: 1.0,
     };
 
     this.createUI();
@@ -390,7 +390,7 @@ class PacmanGame {
 
     const ghostSpawns = [{ r: 1, c: 1 }, { r: 1, c: 13 }, { r: 13, c: 1 }, { r: 13, c: 13 }];
     const scatterTargets = [{ r: 1, c: 13 }, { r: 1, c: 1 }, { r: 13, c: 13 }, { r: 13, c: 1 }];
-    const speedMap = { easy: 0.6, medium: 0.9, hard: 1.3 };
+    const speedMap = { easy: 0.7, medium: 1.0, hard: 1.3 };
     const gs = speedMap[this.state.difficulty] || 0.9;
 
     this.state.ghostMode = "scatter";
