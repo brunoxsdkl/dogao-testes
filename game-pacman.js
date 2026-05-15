@@ -481,10 +481,20 @@ class PacmanGame {
     }
   }
 
+  snapCol(r, raw) {
+    if (r === 7) {
+      if (raw < 0) return raw + this.COLS;
+      if (raw >= this.COLS) return raw - this.COLS;
+      return raw;
+    }
+    if (raw < 0) return 0;
+    if (raw >= this.COLS) return this.COLS - 1;
+    return raw;
+  }
+
   pickGhostDirection(ghost, tr, tc) {
     const r = Math.round(ghost.r);
-    let c = Math.round(ghost.c);
-    if (r === 7) { if (c < 0) c += this.COLS; if (c >= this.COLS) c -= this.COLS; }
+    const c = this.snapCol(r, Math.round(ghost.c));
     const reverse = ghost.dir ^ 1;
     let best = ghost.dir, bestD = Infinity;
     for (let d = 0; d < 4; d++) {
@@ -500,8 +510,7 @@ class PacmanGame {
 
   pickFrightenedDirection(ghost) {
     const r = Math.round(ghost.r);
-    let c = Math.round(ghost.c);
-    if (r === 7) { if (c < 0) c += this.COLS; if (c >= this.COLS) c -= this.COLS; }
+    const c = this.snapCol(r, Math.round(ghost.c));
     const reverse = ghost.dir ^ 1;
     const avail = [];
     for (let d = 0; d < 4; d++) {
@@ -551,17 +560,15 @@ class PacmanGame {
     if (p.nextDir !== p.dir) {
       const v = this.dirVectors(p.nextDir);
       const nr = Math.round(p.r) + v[0];
-      let nc = Math.round(p.c) + v[1];
-      if (p.r === 7) { if (nc < 0) nc += this.COLS; if (nc >= this.COLS) nc -= this.COLS; }
+      const nc = this.snapCol(Math.round(p.r), Math.round(p.c) + v[1]);
       if (this.isWalkable(nr, nc)) p.dir = p.nextDir;
     }
 
     const dirV = this.dirVectors(p.dir);
-    let targetR = p.r + dirV[0] * speed * 0.05;
+    const targetR = p.r + dirV[0] * speed * 0.05;
     let targetC = p.c + dirV[1] * speed * 0.05;
 
-    let nearC = Math.round(targetC);
-    if (Math.round(p.r) === 7) { if (nearC < 0) nearC += this.COLS; if (nearC >= this.COLS) nearC -= this.COLS; }
+    const nearC = this.snapCol(Math.round(p.r), Math.round(targetC));
 
     if (this.isWalkable(Math.round(targetR), nearC)) {
       p.r = targetR;
@@ -569,9 +576,8 @@ class PacmanGame {
       p.moving = true;
     } else {
       const snapR = Math.round(p.r);
-      let snapC = Math.round(p.c);
-      if (Math.round(p.r) === 7) { if (snapC < 0) snapC += this.COLS; if (snapC >= this.COLS) snapC -= this.COLS; }
-      if (Math.abs(p.r - snapR) < 0.15 && Math.abs(p.c - snapC) < 0.15) {
+      const snapC = this.snapCol(snapR, Math.round(p.c));
+      if (this.isWalkable(snapR, snapC) && Math.abs(p.r - snapR) < 0.15 && Math.abs(p.c - snapC) < 0.15) {
         p.r = snapR;
         p.c = snapC;
       } else {
@@ -588,8 +594,7 @@ class PacmanGame {
 
     // ── Food collection ──
     const pr = Math.round(p.r);
-    let pc = Math.round(p.c);
-    if (pr === 7) { if (pc < 0) pc += this.COLS; if (pc >= this.COLS) pc -= this.COLS; }
+    const pc = this.snapCol(pr, Math.round(p.c));
     for (const f of this.state.foods) {
       if (!f.eaten && f.r === pr && f.c === pc) {
         f.eaten = true;
@@ -624,29 +629,36 @@ class PacmanGame {
 
       // At cell center → pick direction toward target
       const cR = Math.round(g.r);
-      let cC = Math.round(g.c);
-      if (cR === 7) { if (cC < 0) cC += this.COLS; if (cC >= this.COLS) cC -= this.COLS; }
+      const cC = this.snapCol(cR, Math.round(g.c));
       const atCenter = Math.abs(g.r - cR) < 0.12 && Math.abs(g.c - cC) < 0.12;
 
-      if (atCenter) {
+      if (atCenter && !g.frightened) {
         const target = this.getGhostTarget(g);
-        g.dir = g.frightened ? this.pickFrightenedDirection(g) : this.pickGhostDirection(g, target.r, target.c);
+        g.dir = this.pickGhostDirection(g, target.r, target.c);
+      } else if (atCenter && g.frightened) {
+        g.dir = this.pickFrightenedDirection(g);
       }
 
       const gs = g.speed * (g.frightened ? 0.025 : 0.04);
       const gv = this.dirVectors(g.dir);
-      let gNextR = g.r + gv[0] * gs;
+      const gNextR = g.r + gv[0] * gs;
       let gNextC = g.c + gv[1] * gs;
 
-      let gNearC = Math.round(gNextC);
-      if (Math.round(gNextR) === 7) { if (gNearC < 0) gNearC += this.COLS; if (gNearC >= this.COLS) gNearC -= this.COLS; }
+      const gNearC = this.snapCol(Math.round(gNextR), Math.round(gNextC));
 
       if (this.isWalkable(Math.round(gNextR), gNearC)) {
         g.r = gNextR;
         g.c = gNextC;
       } else {
+        // Hit a wall — snap to current cell and pick new direction
         g.r = cR;
         g.c = cC;
+        if (!g.frightened) {
+          const target = this.getGhostTarget(g);
+          g.dir = this.pickGhostDirection(g, target.r, target.c);
+        } else {
+          g.dir = this.pickFrightenedDirection(g);
+        }
       }
 
       if (g.c < 0) g.c += this.COLS;
@@ -655,14 +667,12 @@ class PacmanGame {
 
     // ── Ghost–player collision ──
     const pr2 = Math.round(p.r);
-    let pc2 = Math.round(p.c);
-    if (pr2 === 7) { if (pc2 < 0) pc2 += this.COLS; if (pc2 >= this.COLS) pc2 -= this.COLS; }
+    const pc2 = this.snapCol(pr2, Math.round(p.c));
     if (this.state.immune <= 0) {
       for (const g of this.state.ghosts) {
         if (g.eaten) continue;
         const gr = Math.round(g.r);
-        let gc = Math.round(g.c);
-        if (gr === 7) { if (gc < 0) gc += this.COLS; if (gc >= this.COLS) gc -= this.COLS; }
+        const gc = this.snapCol(gr, Math.round(g.c));
         if (pr2 === gr && pc2 === gc) {
           if (g.frightened) {
             g.eaten = true;
