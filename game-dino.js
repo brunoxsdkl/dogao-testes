@@ -21,6 +21,9 @@ class DinoGame {
     this.dogImage = new Image();
     this.dogImage.src = "assets/dog-character-y2uiqon.png";
 
+    this._audioCtx = null;
+    this._musicTimer = null;
+
     this.setupCanvas();
     this.init();
   }
@@ -43,6 +46,7 @@ class DinoGame {
       groundOffset: 0,
       character: "hotdog",
       difficulty: "medium",
+      muted: false,
       runner: { x: 80, y: 0, width: 50, height: 55, vy: 0, jumping: false },
       obstacles: [],
       buildings: [],
@@ -74,6 +78,7 @@ class DinoGame {
     this.ui.style.cssText = `position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;font-family:'Press Start 2P',monospace;`;
 
     this.ui.innerHTML = `
+      <button class="sound-button" id="dino-soundBtn" type="button" aria-label="Silenciar som" style="position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;z-index:30;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,0.32);color:white;display:grid;place-items:center;font-size:20px;backdrop-filter:blur(5px);border:0;cursor:pointer;pointer-events:auto;">🔊</button>
       <div class="dino-score" id="dino-scorebar" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);display:none;gap:20px;font-size:13px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);z-index:5;">
         <span>🏆 <span id="dino-high">${this.state.highScore}</span></span>
         <span>⭐ <span id="dino-score">0</span></span>
@@ -136,6 +141,7 @@ class DinoGame {
     this.preview = document.getElementById("dino-preview");
     this.playBtn = document.getElementById("dino-playBtn");
     this.againBtn = document.getElementById("dino-againBtn");
+    this.soundBtn = document.getElementById("dino-soundBtn");
 
     this.buildOptions();
   }
@@ -186,6 +192,85 @@ class DinoGame {
     for (const b of this.diffOptions.children) b.classList.toggle("active", b.dataset.id === this.state.difficulty);
   }
 
+  audio() {
+    if (this.state.muted) return null;
+    const actx = this._audioCtx;
+    if (actx) {
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    }
+    const newCtx = new (window.AudioContext || window.webkitAudioContext)();
+    this._audioCtx = newCtx;
+    return newCtx;
+  }
+
+  tone(type, freq, start, dur, vol) {
+    const actx = this.audio();
+    if (!actx) return;
+    const gain = actx.createGain();
+    gain.gain.setValueAtTime(vol, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    gain.connect(actx.destination);
+    const osc = actx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, start);
+    osc.connect(gain);
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  }
+
+  playJump() {
+    const actx = this.audio();
+    if (!actx) return;
+    const now = actx.currentTime;
+    this.tone("square", 440, now, 0.1, 0.16);
+    this.tone("square", 660, now + 0.04, 0.08, 0.1);
+  }
+
+  playScore() {
+    const actx = this.audio();
+    if (!actx) return;
+    const now = actx.currentTime;
+    this.tone("square", 988, now, 0.08, 0.12);
+    this.tone("square", 1319, now + 0.06, 0.1, 0.1);
+  }
+
+  playCrash() {
+    const actx = this.audio();
+    if (!actx) return;
+    const now = actx.currentTime;
+    this.tone("sawtooth", 300, now, 0.5, 0.3);
+    this.tone("square", 60, now, 0.35, 0.4);
+  }
+
+  playMusic() {
+    this.stopMusic();
+    if (this.state.muted) return;
+    const melody = [262, 294, 330, 349, 392, 440, 494, 523, 494, 440, 392, 349, 330, 294, 262, 330, 262, 0, 294, 330, 349, 392, 440, 494, 523, 494, 440, 392, 349, 330, 294, 262];
+    let index = 0;
+    this._musicTimer = setInterval(() => {
+      const actx = this.audio();
+      if (!actx || this.state.mode !== "playing") return;
+      const note = melody[index % melody.length];
+      if (note) this.tone("square", note, actx.currentTime, 0.12, 0.035);
+      index++;
+    }, 180);
+  }
+
+  stopMusic() {
+    if (this._musicTimer) clearInterval(this._musicTimer);
+    this._musicTimer = null;
+  }
+
+  toggleSound(event) {
+    event.stopPropagation();
+    this.state.muted = !this.state.muted;
+    this.soundBtn.textContent = this.state.muted ? "🔇" : "🔊";
+    this.soundBtn.setAttribute("aria-label", this.state.muted ? "Ativar som" : "Silenciar som");
+    if (this.state.muted) this.stopMusic();
+    if (!this.state.muted && this.state.mode === "playing") this.playMusic();
+  }
+
   resetPositions() {
     this.state.runner.y = this.CONSTANTS.groundY - this.state.runner.height;
     this.state.runner.vy = 0;
@@ -221,11 +306,14 @@ class DinoGame {
     this.startScreen.classList.add("hidden");
     this.gameoverScreen.classList.add("hidden");
     this.scorebar.style.display = "flex";
+    this.playMusic();
   }
 
   gameOver() {
     if (this.state.mode !== "playing") return;
     this.state.mode = "gameover";
+    this.stopMusic();
+    this.playCrash();
 
     const isRecord = this.state.score > this.state.highScore;
     if (isRecord) {
@@ -249,6 +337,7 @@ class DinoGame {
     if (this.state.mode === "playing" && !this.state.runner.jumping) {
       this.state.runner.vy = this.CONSTANTS.jumpForce;
       this.state.runner.jumping = true;
+      this.playJump();
     }
   }
 
@@ -293,7 +382,7 @@ class DinoGame {
 
     for (const o of this.state.obstacles) {
       o.x -= this.state.speed;
-      if (!o.passed && o.x + o.w < r.x) { o.passed = true; this.state.score++; this.scoreEl.textContent = this.state.score; }
+      if (!o.passed && o.x + o.w < r.x) { o.passed = true; this.state.score++; this.scoreEl.textContent = this.state.score; this.playScore(); }
       if (rL < o.x + o.w && rR > o.x && rT < o.y + o.h && rB > o.y) this.gameOver();
     }
 
@@ -558,11 +647,13 @@ class DinoGame {
     this._pd = (e) => { e.preventDefault(); this.jump(); };
     this._play = (e) => { e.stopPropagation(); this.jump(); };
     this._again = (e) => { e.stopPropagation(); this.jump(); };
+    this._soundToggle = (e) => this.toggleSound(e);
 
     window.addEventListener("keydown", this._kd);
     this.canvas.addEventListener("pointerdown", this._pd);
     if (this.playBtn) this.playBtn.addEventListener("click", this._play);
     if (this.againBtn) this.againBtn.addEventListener("click", this._again);
+    if (this.soundBtn) this.soundBtn.addEventListener("click", this._soundToggle);
   }
 
   loop() {
@@ -578,10 +669,12 @@ class DinoGame {
   destroy() {
     this.running = false;
     if (this.animId) cancelAnimationFrame(this.animId);
+    this.stopMusic();
     window.removeEventListener("keydown", this._kd);
     this.canvas.removeEventListener("pointerdown", this._pd);
     if (this.playBtn) this.playBtn.removeEventListener("click", this._play);
     if (this.againBtn) this.againBtn.removeEventListener("click", this._again);
+    if (this.soundBtn) this.soundBtn.removeEventListener("click", this._soundToggle);
     if (this.ui) this.ui.remove();
   }
 }
