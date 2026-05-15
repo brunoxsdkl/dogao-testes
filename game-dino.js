@@ -25,7 +25,6 @@ class DinoGame {
     this.canvas.style.width = "100%";
     this.canvas.style.height = "100%";
     this.canvas.style.display = "block";
-    this.canvas.style.margin = "0 auto";
   }
 
   init() {

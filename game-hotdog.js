@@ -36,7 +36,6 @@ class HotDogGame {
 
   setupDOM() {
     const container = this.canvas.parentElement;
-    container.style.position = "relative";
 
     const ui = document.createElement("div");
     ui.id = "hotdog-ui";
