@@ -13,6 +13,13 @@ const GAMES = [
     description: "Pule obstaculos igual no Chrome",
     color: "#535353",
   },
+  {
+    id: "delivery",
+    name: "Motoqueiro Delivery",
+    emoji: "🏍️",
+    description: "Desvie do transito e entregue lanches",
+    color: "#f59e0b",
+  },
 ];
 
 const socialScreen = document.getElementById("socialScreen");
@@ -70,6 +77,7 @@ function launchGame(id) {
   switch (id) {
     case "hotdog": gameInstances[id] = new HotDogGame(canvas); break;
     case "dino": gameInstances[id] = new DinoGame(canvas); break;
+    case "delivery": gameInstances[id] = new DeliveryGame(canvas); break;
   }
 }
 
