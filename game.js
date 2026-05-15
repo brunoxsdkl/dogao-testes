@@ -26,7 +26,7 @@ const CHARACTERS = [
     id: "dog",
     label: "Dogao",
     emoji: "🐕",
-    image: "assets/dog-character.png",
+    image: "assets/dog-character-y2uiqon.png",
     description: "Mascote!",
   },
 ];
@@ -54,7 +54,7 @@ const state = {
 };
 
 const dogCharacterImage = new Image();
-dogCharacterImage.src = "assets/dog-character.png";
+dogCharacterImage.src = "assets/dog-character-y2uiqon.png";
 
 const CONSTANTS = {
   gravity: 0.13,
