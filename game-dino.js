@@ -148,6 +148,7 @@ class DinoGame {
       const btn = document.createElement("button");
       btn.className = "card";
       btn.type = "button";
+      btn.style.pointerEvents = "auto";
       btn.dataset.id = ch.id;
       const vis = ch.image
         ? `<img class="character-thumb" src="${ch.image}" alt="${ch.label}" />`
@@ -167,6 +168,7 @@ class DinoGame {
       const btn = document.createElement("button");
       btn.className = `card difficulty-${d.id}`;
       btn.type = "button";
+      btn.style.pointerEvents = "auto";
       btn.dataset.id = d.id;
       btn.innerHTML = `<span class="emoji">${d.emoji}</span><span>${d.label}</span><small>${d.description}</small>`;
       btn.addEventListener("click", () => {
