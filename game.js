@@ -13,11 +13,73 @@ const titleCharacter = document.getElementById("titleCharacter");
 const titleEmoji = document.getElementById("titleEmoji");
 const heroCharacter = document.getElementById("heroCharacter");
 const recordLine = document.getElementById("recordLine");
+const lastScoreLine = document.getElementById("lastScoreLine");
+const deviceLine = document.getElementById("deviceLine");
 const resultEmoji = document.getElementById("resultEmoji");
 const resultTitle = document.getElementById("resultTitle");
 const newRecord = document.getElementById("newRecord");
 const finalScore = document.getElementById("finalScore");
 const bestScore = document.getElementById("bestScore");
+const lastLogLine = document.getElementById("lastLogLine");
+
+const STORAGE_KEYS = {
+  highScore: "flappy_hotdog_highscore",
+  deviceId: "flappy_hotdog_device_id",
+  lastRun: "flappy_hotdog_last_run",
+  runs: "flappy_hotdog_runs",
+};
+
+function getOrCreateDeviceId() {
+  let id = localStorage.getItem(STORAGE_KEYS.deviceId);
+  if (!id) {
+    id = `dogao-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(STORAGE_KEYS.deviceId, id);
+  }
+  return id;
+}
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function saveRun(score, character, difficulty) {
+  const run = {
+    score,
+    character,
+    difficulty,
+    deviceId: state.deviceId,
+    playedAt: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+  };
+  const runs = readJson(STORAGE_KEYS.runs, []);
+  runs.unshift(run);
+  writeJson(STORAGE_KEYS.runs, runs.slice(0, 20));
+  writeJson(STORAGE_KEYS.lastRun, run);
+  return run;
+}
+
+function formatDateTime(value) {
+  if (!value) return "sem partida salva";
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return "partida salva";
+  }
+}
 
 const CHARACTERS = [
   { id: "hotdog", label: "Hot Dog", emoji: "🌭", description: "O classico!" },
@@ -44,7 +106,9 @@ const state = {
   dpr: 1,
   frame: 0,
   score: 0,
-  best: Number(localStorage.getItem("flappy_hotdog_highscore") || 0),
+  best: Number(localStorage.getItem(STORAGE_KEYS.highScore) || 0),
+  deviceId: getOrCreateDeviceId(),
+  lastRun: readJson(STORAGE_KEYS.lastRun, null),
   muted: false,
   character: "hotdog",
   difficulty: "medium",
@@ -122,6 +186,10 @@ function updateMenu() {
     ? `<img src="${character.image}" alt="${character.label}" />`
     : character.emoji;
   recordLine.textContent = state.best > 0 ? `🏆 RECORDE: ${state.best}` : "RECORDE: 0";
+  lastScoreLine.textContent = state.lastRun
+    ? `${state.lastRun.score} pontos - ${formatDateTime(state.lastRun.playedAt)}`
+    : "0 pontos";
+  deviceLine.textContent = `ID ${state.deviceId.slice(-10).toUpperCase()}`;
 
   for (const button of characterOptions.children) {
     button.classList.toggle("active", button.dataset.id === state.character);
@@ -185,14 +253,18 @@ function gameOver() {
   const isRecord = state.score > state.best;
   if (isRecord) {
     state.best = state.score;
-    localStorage.setItem("flappy_hotdog_highscore", String(state.best));
+    localStorage.setItem(STORAGE_KEYS.highScore, String(state.best));
   }
+  state.lastRun = saveRun(state.score, state.character, state.difficulty);
 
   const result = getResultMessage(state.score);
   resultEmoji.textContent = result.emoji;
   resultTitle.textContent = result.text;
   finalScore.textContent = state.score;
   bestScore.textContent = state.best;
+  lastLogLine.textContent = `Salvo no dispositivo ${state.deviceId.slice(-10).toUpperCase()} em ${formatDateTime(
+    state.lastRun.playedAt,
+  )}.`;
   newRecord.classList.toggle("hidden", !isRecord);
   scoreEl.classList.remove("visible");
   gameoverScreen.classList.remove("hidden");
