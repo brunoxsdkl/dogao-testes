@@ -52,18 +52,19 @@ class PacmanGame {
 
     const RAW_MAZE = [
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,0,0,0,0,1,0,1,0,0,0,0,0,1,1],
-      [1,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
-      [1,0,1,0,1,0,0,0,1,0,1,0,0,1,1],
-      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,1,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-      [1,1,0,0,0,0,0,0,0,0,0,0,0,1,1],
-      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
-      [1,0,1,0,1,0,0,0,1,0,1,0,0,1,1],
-      [1,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
-      [1,0,0,0,0,1,0,1,0,0,0,0,0,1,1],
+      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
+      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
+      [1,0,0,0,0,0,1,1,1,0,0,0,0,0,1],
+      [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+      [1,0,0,0,0,0,1,1,1,0,0,0,0,0,1],
+      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
+      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     ];
 
@@ -333,7 +334,7 @@ class PacmanGame {
     this.state.immune = 30;
     this.state.combo = 1;
 
-    const ghostSpawns = [{ r: 1, c: 7 }, { r: 13, c: 7 }, { r: 7, c: 1 }, { r: 7, c: 13 }];
+    const ghostSpawns = [{ r: 1, c: 1 }, { r: 1, c: 13 }, { r: 13, c: 1 }, { r: 13, c: 13 }];
     const speedMap = { easy: 0.6, medium: 0.9, hard: 1.3 };
     const gs = speedMap[this.state.difficulty] || 0.9;
 
@@ -498,6 +499,20 @@ class PacmanGame {
     }
   }
 
+  roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
   drawFood(f, cellSize, ox, oy) {
     const ctx = this.ctx;
     const cx = ox + f.c * cellSize + cellSize / 2;
@@ -509,8 +524,7 @@ class PacmanGame {
 
     if (f.type.id === "sausage") {
       ctx.fillStyle = "#C0392B";
-      ctx.beginPath();
-      ctx.roundRect(-s * 0.4, -s * 0.7, s * 0.8, s * 1.4, s * 0.4);
+      this.roundRect(ctx, -s * 0.4, -s * 0.7, s * 0.8, s * 1.4, s * 0.4);
       ctx.fill();
       ctx.fillStyle = "#E74C3C";
       ctx.fillRect(-s * 0.25, -s * 0.55, s * 0.15, s * 1.1);
