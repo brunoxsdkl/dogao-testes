@@ -629,8 +629,6 @@ class PacmanGame {
       const atCenter = Math.abs(g.r - cR) < 0.12 && Math.abs(g.c - cC) < 0.12;
 
       if (atCenter) {
-        g.r = cR;
-        g.c = cC;
         const target = this.getGhostTarget(g);
         g.dir = g.frightened ? this.pickFrightenedDirection(g) : this.pickGhostDirection(g, target.r, target.c);
       }
