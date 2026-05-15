@@ -2,16 +2,37 @@ const GAMES = [
   {
     id: "hotdog",
     name: "Hot Dog Dash",
-    emoji: "🌭",
+    emoji: "\uD83C\uDF2D",
     description: "Flappy Bird com hot dog",
     color: "#c81010",
   },
   {
     id: "dino",
     name: "Dino Runner",
-    emoji: "🦖",
+    emoji: "\uD83E\uDD96",
     description: "Pule obstaculos igual no Chrome",
     color: "#535353",
+  },
+  {
+    id: "blaster",
+    name: "Dogao Blaster",
+    emoji: "\uD83D\uDE80",
+    description: "Atire nos inimigos do espaco",
+    color: "#2d1b4e",
+  },
+  {
+    id: "catch",
+    name: "Hot Dog Catch",
+    emoji: "\uD83E\uDDCA",
+    description: "Pegue os ingredientes!",
+    color: "#228B22",
+  },
+  {
+    id: "survivor",
+    name: "Dogao Survivor",
+    emoji: "\u2694\uFE0F",
+    description: "Sobreviva a horda de inimigos",
+    color: "#9B59B6",
   },
 ];
 
@@ -70,6 +91,9 @@ function launchGame(id) {
   switch (id) {
     case "hotdog": gameInstances[id] = new HotDogGame(canvas); break;
     case "dino": gameInstances[id] = new DinoGame(canvas); break;
+    case "blaster": gameInstances[id] = new BlasterGame(canvas); break;
+    case "catch": gameInstances[id] = new CatchGame(canvas); break;
+    case "survivor": gameInstances[id] = new SurvivorGame(canvas); break;
   }
 }
 
