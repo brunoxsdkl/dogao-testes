@@ -3,10 +3,14 @@ const ctx = canvas.getContext("2d");
 
 const startScreen = document.getElementById("startScreen");
 const gameoverScreen = document.getElementById("gameoverScreen");
+const checkinScreen = document.getElementById("checkinScreen");
 const scoreEl = document.getElementById("score");
 const soundButton = document.getElementById("soundButton");
 const playButton = document.getElementById("playButton");
 const againButton = document.getElementById("againButton");
+const confirmFollowButton = document.getElementById("confirmFollowButton");
+const closeCheckinButton = document.getElementById("closeCheckinButton");
+const followStatusButton = document.getElementById("followStatusButton");
 const characterOptions = document.getElementById("characterOptions");
 const difficultyOptions = document.getElementById("difficultyOptions");
 const titleCharacter = document.getElementById("titleCharacter");
@@ -27,6 +31,7 @@ const STORAGE_KEYS = {
   deviceId: "flappy_hotdog_device_id",
   lastRun: "flappy_hotdog_last_run",
   runs: "flappy_hotdog_runs",
+  instagramCheckin: "flappy_hotdog_instagram_checkin",
 };
 
 function getOrCreateDeviceId() {
@@ -109,6 +114,7 @@ const state = {
   best: Number(localStorage.getItem(STORAGE_KEYS.highScore) || 0),
   deviceId: getOrCreateDeviceId(),
   lastRun: readJson(STORAGE_KEYS.lastRun, null),
+  instagramCheckin: readJson(STORAGE_KEYS.instagramCheckin, null),
   muted: false,
   character: "hotdog",
   difficulty: "medium",
@@ -190,6 +196,7 @@ function updateMenu() {
     ? `${state.lastRun.score} pontos - ${formatDateTime(state.lastRun.playedAt)}`
     : "0 pontos";
   deviceLine.textContent = `ID ${state.deviceId.slice(-10).toUpperCase()}`;
+  updateFollowStatus();
 
   for (const button of characterOptions.children) {
     button.classList.toggle("active", button.dataset.id === state.character);
@@ -197,6 +204,39 @@ function updateMenu() {
   for (const button of difficultyOptions.children) {
     button.classList.toggle("active", button.dataset.id === state.difficulty);
   }
+}
+
+function updateFollowStatus() {
+  if (state.instagramCheckin) {
+    followStatusButton.textContent = `Check-in feito em ${formatDateTime(
+      state.instagramCheckin.checkedAt,
+    )}`;
+    followStatusButton.classList.add("done");
+    return;
+  }
+
+  followStatusButton.textContent = "Check-in Instagram pendente";
+  followStatusButton.classList.remove("done");
+}
+
+function openCheckin() {
+  checkinScreen.classList.remove("hidden");
+}
+
+function closeCheckin() {
+  checkinScreen.classList.add("hidden");
+}
+
+function confirmInstagramCheckin() {
+  state.instagramCheckin = {
+    profile: "https://www.instagram.com/omegadogaocwb/",
+    deviceId: state.deviceId,
+    checkedAt: new Date().toISOString(),
+  };
+  writeJson(STORAGE_KEYS.instagramCheckin, state.instagramCheckin);
+  updateFollowStatus();
+  closeCheckin();
+  startGame();
 }
 
 function resize() {
@@ -228,7 +268,17 @@ function startGame() {
   scoreEl.classList.add("visible");
   startScreen.classList.add("hidden");
   gameoverScreen.classList.add("hidden");
+  checkinScreen.classList.add("hidden");
   playMusic();
+}
+
+function requestStartGame() {
+  if (!state.instagramCheckin) {
+    openCheckin();
+    return;
+  }
+
+  startGame();
 }
 
 function flap() {
@@ -892,13 +942,25 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 playButton.addEventListener("click", (event) => {
   event.stopPropagation();
-  startGame();
+  requestStartGame();
 });
 againButton.addEventListener("click", (event) => {
   event.stopPropagation();
   startGame();
 });
 soundButton.addEventListener("click", toggleSound);
+confirmFollowButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  confirmInstagramCheckin();
+});
+closeCheckinButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  closeCheckin();
+});
+followStatusButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  openCheckin();
+});
 
 setupOptions();
 resize();
