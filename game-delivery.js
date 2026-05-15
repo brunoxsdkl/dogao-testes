@@ -4,9 +4,9 @@ class DeliveryGame {
     this.animId = null; this.running = true; this._last = null;
     this._audioCtx = null; this._musicTimer = null;
     this.CHARACTERS = [
-      { id: "hotdog", label: "Hot Dog", emoji: "🌭" },
-      { id: "burger", label: "X-Burguer", emoji: "🍔" },
-      { id: "dog", label: "Dogao", emoji: "🐕" },
+      { id: "hotdog", label: "Hot Dog", emoji: "🌭", color: "#C81010" },
+      { id: "burger", label: "X-Burguer", emoji: "🍔", color: "#16a34a" },
+      { id: "dog", label: "Dogao", emoji: "🐕", color: "#f59e0b" },
     ];
     this.setupCanvas(); this.init();
   }
@@ -15,10 +15,20 @@ class DeliveryGame {
     this.state = {
       mode: "start", score: 0, highScore: Number(localStorage.getItem("delivery_high")||0),
       character: "hotdog", difficulty: "medium", lives: 3, deliveries: 0, combo: 0,
-      bike: { x: 200, y: 520, w: 20, h: 36, speed: 4 },
-      cars: [], roadOffset: 0, frame: 0, spawnTimer: 0,
-      targetX: 200, moving: false
+      bikeX: 200, targetX: 200, moving: false, cars: [], frame: 0, spawnTimer: 0, scrollY: 0,
+      horizon: 155, roadTopW: 60, roadBotW: 300
     };
+    this.BUILDINGS = [];
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 6; i++) {
+        this.BUILDINGS.push({
+          side, z: i * 80 + Math.random() * 30,
+          w: 35 + Math.random() * 25, h: 80 + Math.random() * 140,
+          color: ["#1a1a2e","#16213e","#0f3460","#533483","#2d2d44","#1f1f35"][Math.floor(Math.random()*6)],
+          windows: Math.floor(2 + Math.random() * 3)
+        });
+      }
+    }
     this.createUI(); this.bindEvents(); this.render(); this._last = performance.now(); this.loop();
   }
   createUI() {
@@ -63,7 +73,6 @@ class DeliveryGame {
     this.startScr = document.getElementById("del-startScreen"); this.overScr = document.getElementById("del-overScreen");
     this.finalEl = document.getElementById("del-final"); this.bestEl = document.getElementById("del-best");
     this.newREl = document.getElementById("del-newR"); this.soundBtn = document.getElementById("del-soundBtn");
-
     this.buildSel("del-charOpts", this.CHARACTERS, (id)=>this.state.character=id);
     this.diffs = [{id:"easy",label:"Facil",emoji:"😊"},{id:"medium",label:"Medio",emoji:"😤"},{id:"hard",label:"Dificil",emoji:"💀"}];
     const dEl = document.getElementById("del-diffs");
@@ -86,14 +95,26 @@ class DeliveryGame {
       el.appendChild(b);
     }
   }
+  projectX(z, x) {
+    const s = this.state;
+    const t = 1 - z / 600;
+    const center = s.horizon + (s.canvas.height - s.horizon) * (1 - t);
+    const roadW = s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - t);
+    return s.canvas.width / 2 + (x - s.canvas.width / 2) * roadW / s.roadBotW;
+  }
+  projectY(z) {
+    const s = this.state;
+    const t = 1 - z / 600;
+    return s.horizon + (s.canvas.height - s.horizon) * (1 - t);
+  }
+  scale(z) { return 1 - z / 600; }
   startGame() {
     this.state.mode = "playing"; this.state.score = 0; this.state.lives = 3; this.state.deliveries = 0;
-    this.state.combo = 0; this.state.cars = []; this.state.frame = 0; this.state.spawnTimer = 0;
-    this.state.bike.x = 200; this.state.targetX = 200;
+    this.state.combo = 0; this.state.cars = []; this.state.frame = 0; this.state.spawnTimer = 0; this.state.scrollY = 0;
+    this.state.bikeX = 200; this.state.targetX = 200;
     this.scoreEl.textContent = "0"; this.livesEl.textContent = "3"; this.highEl.textContent = this.state.highScore;
     this.startScr.classList.add("hidden"); this.overScr.classList.add("hidden");
-    this.scorebar.style.display = "flex";
-    this.playMusic();
+    this.scorebar.style.display = "flex"; this.playMusic();
   }
   gameOver() {
     this.state.mode = "gameover"; this.stopMusic(); this.playCrash();
@@ -107,85 +128,175 @@ class DeliveryGame {
   updateGame() {
     if (this.state.mode !== "playing") return;
     this.state.frame++;
-    const w = this.canvas.width, h = this.canvas.height;
+    const w = this.canvas.width;
     const speed = {easy:2.5,medium:3.5,hard:5}[this.state.difficulty] || 3.5;
-    const carRate = {easy:70,medium:50,hard:35}[this.state.difficulty] || 50;
-
+    const carRate = {easy:65,medium:45,hard:30}[this.state.difficulty] || 45;
+    this.state.scrollY = (this.state.scrollY + speed * 0.5) % 600;
     if (this.state.moving) {
-      const dx = this.state.targetX - this.state.bike.x;
-      if (Math.abs(dx) > 2) this.state.bike.x += Math.sign(dx) * this.state.bike.speed;
-      else { this.state.bike.x = this.state.targetX; this.state.moving = false; }
+      const dx = this.state.targetX - this.state.bikeX;
+      if (Math.abs(dx) > 3) this.state.bikeX += Math.sign(dx) * 5;
+      else { this.state.bikeX = this.state.targetX; this.state.moving = false; }
     }
-    this.state.bike.x = Math.max(30 + this.state.bike.w/2, Math.min(w - 30 - this.state.bike.w/2, this.state.bike.x));
-
+    const roadEdge = 50;
+    this.state.bikeX = Math.max(roadEdge + 20, Math.min(w - roadEdge - 20, this.state.bikeX));
     this.state.spawnTimer++;
     if (this.state.spawnTimer >= carRate) {
       this.state.spawnTimer = 0;
-      const lane = 60 + Math.floor(Math.random() * 4) * 80;
-      const type = Math.random() > 0.55 ? "car" : "truck";
-      const cw = type === "truck" ? 36 : 26, ch = 44;
+      const laneOff = -60 + Math.floor(Math.random() * 3) * 60;
+      const type = Math.random() > 0.5 ? "car" : "truck";
       this.state.cars.push({
-        x: lane, y: -ch, w: cw, h: ch, type,
-        color: ["#C81010","#2563eb","#16a34a","#D4903C","#7c3aed"][Math.floor(Math.random()*5)],
-        speed: speed + (Math.random() * 0.8 + 0.3)
+        z: -50, x: w / 2 + laneOff, type,
+        color: ["#C81010","#2563eb","#16a34a","#D4903C","#7c3aed","#e11d48"][Math.floor(Math.random()*6)],
+        speed: speed + (Math.random() * 0.6 + 0.4), wobble: Math.random() * 0.3 - 0.15
       });
     }
-
-    for (const c of this.state.cars) c.y += c.speed;
-    this.state.cars = this.state.cars.filter(c => c.y < h + 60);
-
-    const b = this.state.bike;
+    for (const c of this.state.cars) c.z += c.speed;
+    this.state.cars = this.state.cars.filter(c => c.z < 600);
+    const bz = 520, bx = this.state.bikeX;
     for (const c of this.state.cars) {
-      if (b.x - b.w/2 + 4 < c.x + c.w - 4 && b.x + b.w/2 - 4 > c.x + 4 &&
-          b.y - b.h/2 + 4 < c.y + c.h - 4 && b.y + b.h/2 - 4 > c.y + 4) {
+      const cz = c.z;
+      if (cz < 0 || cz > 600) continue;
+      const ch = c.type === "truck" ? 100 : 70, cw = c.type === "truck" ? 50 : 38;
+      const dx = Math.abs(bx - c.x), dz = Math.abs(bz - cz);
+      if (dx < cw / 2 + 14 && dz < ch / 2 + 16) {
         this.state.lives--; this.livesEl.textContent = this.state.lives; this.playCrash();
         this.state.cars = this.state.cars.filter(cc => cc !== c);
         this.state.combo = 0;
         if (this.state.lives <= 0) { this.gameOver(); return; }
       }
     }
-
     this.state.deliveries = Math.floor(this.state.frame / 180);
     const lastDel = Math.floor((this.state.frame - 1) / 180);
     if (this.state.deliveries > lastDel) { this.state.score += 10 + this.state.combo * 2; this.state.combo++; this.scoreEl.textContent = this.state.score; this.playScore(); }
   }
+  drawRoad() {
+    const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height, s = this.state;
+    ctx.fillStyle = "#87CEEB"; ctx.fillRect(0, 0, w, s.horizon);
+    ctx.fillStyle = "#b4d9e8"; ctx.fillRect(0, s.horizon - 2, w, 4);
+    const grad = ctx.createLinearGradient(0, s.horizon, 0, h);
+    grad.addColorStop(0, "#4a4a4a"); grad.addColorStop(0.3, "#3a3a3a"); grad.addColorStop(1, "#2a2a2a");
+    ctx.fillStyle = grad; ctx.fillRect(0, s.horizon, w, h - s.horizon);
+    for (const b of this.BUILDINGS) {
+      const t = 1 - b.z / 600;
+      if (t <= 0 || t >= 1) continue;
+      const by = s.horizon + (h - s.horizon) * (1 - t);
+      const bw = b.w * t;
+      const bh = b.h * t;
+      const bx = b.side === -1
+        ? w / 2 - (s.roadBotW / 2 + b.w) * t - bw / 2
+        : w / 2 + (s.roadBotW / 2) * t - bw / 2;
+      ctx.fillStyle = b.color;
+      ctx.fillRect(bx, by - bh, bw, bh);
+      ctx.strokeStyle = "rgba(255,215,0,0.08)"; ctx.lineWidth = 1;
+      ctx.strokeRect(bx, by - bh, bw, bh);
+      ctx.fillStyle = "rgba(255,215,0,0.15)";
+      const ww = 4 * t, wh = 6 * t, pad = 3 * t;
+      for (let r = 0; r < b.windows && r < 4; r++) {
+        for (let c = 0; c < 2; c++) {
+          const lx = bx + pad + c * (ww + pad * 2);
+          const ly = by - bh + pad + r * (wh + pad * 2);
+          if (lx + ww < bx + bw - 2 && ly + wh < by - 2) ctx.fillRect(lx, ly, Math.max(1, ww), Math.max(1, wh));
+        }
+      }
+    }
+    for (let seg = 0; seg < 40; seg++) {
+      const z1 = (seg / 40) * 600 + s.scrollY % 75;
+      if (z1 > 600) continue;
+      const t = 1 - z1 / 600;
+      if (t <= 0) continue;
+      const yy = s.horizon + (h - s.horizon) * (1 - t);
+      const rw = s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - t);
+      const lx = w / 2 - rw / 2, rx = w / 2 + rw / 2;
+      ctx.strokeStyle = "#facc15"; ctx.lineWidth = Math.max(1, 2 * t);
+      ctx.beginPath(); ctx.moveTo(lx, yy); ctx.lineTo(rx, yy); ctx.stroke();
+    }
+    const topT = 0.08;
+    const lt = w / 2 - (s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - topT)) / 2;
+    const rt = w / 2 + (s.roadTopW + (s.roadBotW - s.roadTopW) * (1 - topT)) / 2;
+    const yt = s.horizon + (h - s.horizon) * (1 - topT);
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(lt, yt); ctx.lineTo(w/2 - s.roadBotW/2, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rt, yt); ctx.lineTo(w/2 + s.roadBotW/2, h); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.setLineDash([10, 20]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w/2, s.horizon + 10); ctx.lineTo(w/2, h); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  drawCar(c) {
+    const ctx = this.ctx, h = this.canvas.height, s = this.state;
+    if (c.z < 0 || c.z > 600) return;
+    const t = this.scale(c.z);
+    if (t <= 0.02) return;
+    const sy = this.projectY(c.z);
+    const sx = this.projectX(c.z, c.x);
+    const isTruck = c.type === "truck";
+    const cw = (isTruck ? 50 : 38) * t;
+    const ch = (isTruck ? 100 : 70) * t;
+    const wob = Math.sin(c.z * 0.15 + c.wobble) * 2 * t;
+    ctx.save(); ctx.translate(sx + wob, sy - ch/2);
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(-cw/2-2, -2, cw+4, ch+4, 4*t); ctx.fill();
+    ctx.fillStyle = c.color;
+    ctx.beginPath(); ctx.roundRect(-cw/2, 0, cw, ch, 3*t); ctx.fill();
+    if (isTruck) {
+      ctx.fillStyle = "rgba(200,200,255,0.3)";
+      ctx.fillRect(-cw/2+3*t, ch*0.15, cw-6*t, ch*0.35);
+      ctx.fillRect(-cw/2+3*t, ch*0.55, cw-6*t, ch*0.2);
+    } else {
+      ctx.fillStyle = "rgba(200,200,255,0.35)";
+      ctx.fillRect(-cw/2+3*t, ch*0.2, cw-6*t, ch*0.35);
+    }
+    ctx.fillStyle = "#111";
+    const wr = 3*t, wh = 4*t;
+    ctx.fillRect(-cw/2+2*t, ch - wh - 2*t, cw*0.25, wh);
+    ctx.fillRect(-cw/2+2*t, 2*t, cw*0.25, wh);
+    ctx.fillRect(cw/2-2*t - cw*0.25, ch - wh - 2*t, cw*0.25, wh);
+    ctx.fillRect(cw/2-2*t - cw*0.25, 2*t, cw*0.25, wh);
+    ctx.fillStyle = "#facc15";
+    ctx.fillRect(-cw/2+1, ch*0.02, 2*t, 2*t);
+    ctx.fillRect(cw/2-1-2*t, ch*0.02, 2*t, 2*t);
+    ctx.fillRect(-cw/2+1, ch-2*t-2*t, 2*t, 2*t);
+    ctx.fillRect(cw/2-1-2*t, ch-2*t-2*t, 2*t, 2*t);
+    ctx.shadowColor = "rgba(0,0,0,0.3)"; ctx.shadowBlur = 8*t;
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.beginPath(); ctx.ellipse(0, ch + 3*t, cw*0.35, 2*t, 0, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+  drawBike() {
+    const ctx = this.ctx, s = this.state, h = this.canvas.height;
+    const bz = 520, bx = s.bikeX;
+    const t = this.scale(bz);
+    const sy = this.projectY(bz) - 10;
+    const sx = this.projectX(bz, bx);
+    const sc = 1.2 * t * (s.canvas.width / 400);
+    ctx.save(); ctx.translate(sx, sy);
+    ctx.scale(sc, sc);
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.beginPath(); ctx.ellipse(0, 34, 22, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(-14, 6, 28, 26, 6); ctx.fill();
+    ctx.fillStyle = "#555"; ctx.fillRect(-12, 10, 24, 8);
+    ctx.fillStyle = "#C81010"; ctx.beginPath(); ctx.roundRect(-4, 0, 8, 14, 2); ctx.fill();
+    ctx.strokeStyle = "#888"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-16, 18); ctx.quadraticCurveTo(-20, 24, -20, 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(16, 18); ctx.quadraticCurveTo(20, 24, 20, 30); ctx.stroke();
+    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.ellipse(-18, 31, 4, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(18, 31, 4, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#666"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(0, -2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-8, -4); ctx.lineTo(8, -4); ctx.stroke();
+    ctx.fillStyle = "#facc15";
+    ctx.beginPath(); ctx.arc(0, -8, 4, 0, Math.PI, false); ctx.fill();
+    const ch = this.CHARACTERS.find(c => c.id === s.character) || this.CHARACTERS[0];
+    ctx.font = "18px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(ch.emoji, 0, -6);
+    ctx.restore();
+  }
   render() {
-    const ctx = this.ctx; const w = this.canvas.width, h = this.canvas.height;
-    ctx.fillStyle = "#2d2d2d"; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle = "#444"; ctx.fillRect(140,0,120,h);
-    ctx.strokeStyle = "#facc15"; ctx.lineWidth = 2; ctx.setLineDash([20,16]);
-    ctx.beginPath(); ctx.moveTo(200,0); ctx.lineTo(200,h); ctx.stroke(); ctx.setLineDash([]);
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(145,0); ctx.lineTo(145,h); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(255,0); ctx.lineTo(255,h); ctx.stroke();
-    this.state.roadOffset = (this.state.roadOffset + 2) % 60;
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
-    for (let y = -this.state.roadOffset; y < h; y += 60) ctx.fillRect(195, y, 10, 30);
-    ctx.fillStyle = "rgba(255,215,0,0.06)";
-    for (let y = -this.state.roadOffset; y < h; y += 30) { ctx.fillRect(145, y, 2, 15); ctx.fillRect(253, y, 2, 15); }
-
-    for (const c of this.state.cars) {
-      ctx.fillStyle = c.color;
-      ctx.beginPath(); ctx.roundRect(c.x, c.y, c.w, c.h, 5); ctx.fill();
-      ctx.fillStyle = "rgba(255,215,0,0.2)";
-      if (c.type === "truck") { ctx.fillRect(c.x+4, c.y+6, c.w-8, 8); ctx.fillRect(c.x+4, c.y+c.h-14, c.w-8, 8); }
-      else { ctx.fillRect(c.x+4, c.y+4, c.w-8, 5); ctx.fillRect(c.x+4, c.y+c.h-9, c.w-8, 5); }
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
-      ctx.fillRect(c.x + c.w/2 - 1, c.y + 2, 2, 4);
-    }
-
-    if (this.state.mode === "playing" || this.state.mode === "gameover") {
-      const b = this.state.bike;
-      ctx.save(); ctx.translate(b.x, b.y);
-      ctx.fillStyle = "#C81010"; ctx.beginPath(); ctx.roundRect(-b.w/2, -b.h/2, b.w, b.h, 8); ctx.fill();
-      ctx.fillStyle = "#facc15"; ctx.fillRect(-b.w/2 + 3, -b.h/2 + 3, b.w-6, 6);
-      ctx.fillRect(-b.w/2 + 3, b.h/2 - 9, b.w-6, 6);
-      ctx.fillStyle = "#333"; ctx.beginPath(); ctx.ellipse(0, 0, 4, b.h/2 - 4, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(this.CHARACTERS.find(c=>c.id===this.state.character)?.emoji || "🌭", 0, -2);
-      ctx.restore();
-      ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(b.x, b.y + b.h/2 + 4, b.w/2, 4, 0, 0, Math.PI*2); ctx.fill();
-    }
+    const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
+    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0,0,w,h);
+    this.drawRoad();
+    for (const c of this.state.cars) this.drawCar(c);
+    if (this.state.mode === "playing" || this.state.mode === "gameover") this.drawBike();
   }
   audio() {
     if (this.state.muted) return null;
@@ -202,7 +313,6 @@ class DeliveryGame {
     osc.frequency.setValueAtTime(freq, start); osc.connect(gain);
     osc.start(start); osc.stop(start + dur + 0.02);
   }
-  playJump() { const a=this.audio(); if(!a)return; const n=a.currentTime; this.tone("square",520,n,0.1,0.14); this.tone("square",780,n+0.04,0.08,0.1); }
   playScore() { const a=this.audio(); if(!a)return; const n=a.currentTime; this.tone("square",880,n,0.08,0.1); this.tone("square",1320,n+0.05,0.08,0.08); }
   playCrash() { const a=this.audio(); if(!a)return; const n=a.currentTime; this.tone("sawtooth",350,n,0.4,0.28); this.tone("square",50,n,0.3,0.35); }
   playMusic() {
@@ -226,16 +336,16 @@ class DeliveryGame {
   bindEvents() {
     this._kd = (e) => {
       if (this.state.mode === "playing") {
-        if (e.code === "ArrowLeft") { this.state.targetX = this.state.bike.x - 80; this.state.moving = true; }
-        if (e.code === "ArrowRight") { this.state.targetX = this.state.bike.x + 80; this.state.moving = true; }
+        if (e.code === "ArrowLeft") { this.state.targetX = this.state.bikeX - 70; this.state.moving = true; }
+        if (e.code === "ArrowRight") { this.state.targetX = this.state.bikeX + 70; this.state.moving = true; }
       }
       if ((e.code === "Space" || e.code === "Enter") && (this.state.mode === "start" || this.state.mode === "gameover")) this.startGame();
     };
     this._pd = (e) => {
       if (this.state.mode === "playing") {
         const rect = this.canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) / rect.width * this.canvas.width;
-        this.state.targetX = mx; this.state.moving = true;
+        this.state.targetX = (e.clientX - rect.left) / rect.width * this.canvas.width;
+        this.state.moving = true;
       }
       if (this.state.mode === "start" || this.state.mode === "gameover") this.startGame();
     };
