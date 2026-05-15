@@ -13,6 +13,48 @@ const GAMES = [
     description: "Pule obstaculos igual no Chrome",
     color: "#535353",
   },
+  {
+    id: "tetris",
+    name: "Dogao Tetris",
+    emoji: "🧱",
+    description: "Empilhe blocos como um pro",
+    color: "#2563eb",
+  },
+  {
+    id: "invaders",
+    name: "Space Invaders",
+    emoji: "👾",
+    description: "Acerte os aliens espaciais",
+    color: "#7c3aed",
+  },
+  {
+    id: "snake",
+    name: "Dogao Snake",
+    emoji: "🐍",
+    description: "Cobrinha classica recarregada",
+    color: "#16a34a",
+  },
+  {
+    id: "breakout",
+    name: "Dogao Breakout",
+    emoji: "🏓",
+    description: "Quebre tijolos com a bolinha",
+    color: "#dc2626",
+  },
+  {
+    id: "memory",
+    name: "Dogao Memory",
+    emoji: "🧠",
+    description: "Teste sua memoria",
+    color: "#d97706",
+  },
+  {
+    id: "pacman",
+    name: "Dogao Pac-Man",
+    emoji: "👻",
+    description: "Fuja dos fantasmas no labirinto",
+    color: "#facc15",
+  },
 ];
 
 const menuScreen = document.getElementById("menuScreen");
@@ -55,10 +97,15 @@ function launchGame(id) {
     gameInstances[id].destroy();
   }
 
-  if (id === "hotdog") {
-    gameInstances[id] = new HotDogGame(canvas);
-  } else if (id === "dino") {
-    gameInstances[id] = new DinoGame(canvas);
+  switch (id) {
+    case "hotdog": gameInstances[id] = new HotDogGame(canvas); break;
+    case "dino": gameInstances[id] = new DinoGame(canvas); break;
+    case "tetris": gameInstances[id] = new TetrisGame(canvas); break;
+    case "invaders": gameInstances[id] = new InvadersGame(canvas); break;
+    case "snake": gameInstances[id] = new SnakeGame(canvas); break;
+    case "breakout": gameInstances[id] = new BreakoutGame(canvas); break;
+    case "memory": gameInstances[id] = new MemoryGame(canvas); break;
+    case "pacman": gameInstances[id] = new PacmanGame(canvas); break;
   }
 }
 
