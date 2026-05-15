@@ -48,18 +48,23 @@ class PacmanGame {
       { id: "burger", color: "#8B4513", points: 25 },
     ];
 
+    this.GHOST_MODE_TIMES = {
+      scatter: [420, 420, 300, 300],
+      chase: [1200, 1200, 1200, 1e9],
+    };
+
     const RAW_MAZE = [
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
       [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
-      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
-      [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+      [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-      [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
-      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
-      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],
+      [0,0,0,0,0,0,1,0,1,0,0,0,0,0,0],
+      [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
       [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -102,6 +107,9 @@ class PacmanGame {
       immune: 0,
       combo: 1,
       powerTime: 0,
+      ghostMode: "scatter",
+      ghostModePhase: 0,
+      ghostModeTimer: 420,
     };
 
     this.CONSTANTS = {
@@ -381,16 +389,23 @@ class PacmanGame {
     this.state.combo = 1;
 
     const ghostSpawns = [{ r: 1, c: 1 }, { r: 1, c: 13 }, { r: 13, c: 1 }, { r: 13, c: 13 }];
+    const scatterTargets = [{ r: 1, c: 13 }, { r: 1, c: 1 }, { r: 13, c: 13 }, { r: 13, c: 1 }];
     const speedMap = { easy: 0.6, medium: 0.9, hard: 1.3 };
     const gs = speedMap[this.state.difficulty] || 0.9;
 
+    this.state.ghostMode = "scatter";
+    this.state.ghostModePhase = 0;
+    this.state.ghostModeTimer = this.GHOST_MODE_TIMES.scatter[0];
+
     this.state.ghosts = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       this.state.ghosts.push({
         r: ghostSpawns[i].r, c: ghostSpawns[i].c,
         spawnR: ghostSpawns[i].r, spawnC: ghostSpawns[i].c,
-        dir: 0, color: this.GHOST_COLORS[i % this.GHOST_COLORS.length],
-        speed: gs + i * 0.1, scatterTimer: 0,
+        scatterR: scatterTargets[i].r, scatterC: scatterTargets[i].c,
+        index: i, dir: 3,
+        color: this.GHOST_COLORS[i % this.GHOST_COLORS.length],
+        speed: gs + i * 0.1,
         frightened: false, eaten: false, eatenTimer: 0,
       });
     }
@@ -441,7 +456,68 @@ class PacmanGame {
     return vecs[d] || [0, 0];
   }
 
+  getGhostTarget(ghost) {
+    const p = this.state.player;
+    if (this.state.ghostMode === "scatter") return { r: ghost.scatterR, c: ghost.scatterC };
+    switch (ghost.index) {
+      case 0: return { r: p.r, c: p.c };
+      case 1: {
+        const v = this.dirVectors(p.dir);
+        return { r: p.r + v[0] * 4, c: p.c + v[1] * 4 };
+      }
+      case 2: {
+        const blinky = this.state.ghosts[0];
+        if (!blinky) return { r: p.r, c: p.c };
+        const v2 = this.dirVectors(p.dir);
+        const ahead = { r: p.r + v2[0] * 2, c: p.c + v2[1] * 2 };
+        return { r: ahead.r + (ahead.r - blinky.r), c: ahead.c + (ahead.c - blinky.c) };
+      }
+      case 3: {
+        const d = Math.sqrt((p.r - ghost.r) ** 2 + (p.c - ghost.c) ** 2);
+        if (d > 8) return { r: p.r, c: p.c };
+        return { r: ghost.scatterR, c: ghost.scatterC };
+      }
+      default: return { r: p.r, c: p.c };
+    }
+  }
+
+  pickGhostDirection(ghost, tr, tc) {
+    const r = Math.round(ghost.r);
+    let c = Math.round(ghost.c);
+    if (r === 7) { if (c < 0) c += this.COLS; if (c >= this.COLS) c -= this.COLS; }
+    const reverse = ghost.dir ^ 1;
+    let best = ghost.dir, bestD = Infinity;
+    for (let d = 0; d < 4; d++) {
+      if (d === reverse) continue;
+      const v = this.dirVectors(d);
+      if (this.isWalkable(r + v[0], c + v[1])) {
+        const dist = (r + v[0] - tr) ** 2 + (c + v[1] - tc) ** 2;
+        if (dist < bestD) { bestD = dist; best = d; }
+      }
+    }
+    return best;
+  }
+
+  pickFrightenedDirection(ghost) {
+    const r = Math.round(ghost.r);
+    let c = Math.round(ghost.c);
+    if (r === 7) { if (c < 0) c += this.COLS; if (c >= this.COLS) c -= this.COLS; }
+    const reverse = ghost.dir ^ 1;
+    const avail = [];
+    for (let d = 0; d < 4; d++) {
+      if (d === reverse) continue;
+      const v = this.dirVectors(d);
+      if (this.isWalkable(r + v[0], c + v[1])) avail.push(d);
+    }
+    if (avail.length === 0) return ghost.dir;
+    return avail[Math.floor(Math.random() * avail.length)];
+  }
+
   isWalkable(r, c) {
+    if (r === 7) {
+      if (c < 0) c += this.COLS;
+      if (c >= this.COLS) c -= this.COLS;
+    }
     if (r < 0 || r >= this.ROWS || c < 0 || c >= this.COLS) return false;
     return this.maze[r][c] !== 1;
   }
@@ -452,45 +528,68 @@ class PacmanGame {
 
     if (this.state.immune > 0) this.state.immune--;
 
-    const speed = this.CONSTANTS.playerSpeed;
-    const p = this.state.player;
-    let dr = 0, dc = 0;
-
-    if (p.nextDir !== p.dir) {
-      const v = this.dirVectors(p.nextDir);
-      if (this.isWalkable(Math.round(p.r) + v[0], Math.round(p.c) + v[1])) {
-        p.dir = p.nextDir;
+    // ── Ghost mode timer ──
+    this.state.ghostModeTimer--;
+    if (this.state.ghostModeTimer <= 0) {
+      const phase = this.state.ghostModePhase;
+      if (this.state.ghostMode === "scatter") {
+        this.state.ghostMode = "chase";
+        this.state.ghostModeTimer = this.GHOST_MODE_TIMES.chase[Math.min(phase, this.GHOST_MODE_TIMES.chase.length - 1)];
+      } else {
+        this.state.ghostMode = "scatter";
+        const nextPhase = Math.min(phase + 1, this.GHOST_MODE_TIMES.scatter.length - 1);
+        this.state.ghostModePhase = nextPhase;
+        this.state.ghostModeTimer = this.GHOST_MODE_TIMES.scatter[nextPhase];
+        for (const g of this.state.ghosts) if (!g.eaten && !g.frightened) g.dir ^= 1;
       }
     }
 
-    const v = this.dirVectors(p.dir);
-    dr = v[0]; dc = v[1];
-    const targetR = p.r + dr * speed * 0.05;
-    const targetC = p.c + dc * speed * 0.05;
+    // ── Player movement with tunnel wrap ──
+    const speed = this.CONSTANTS.playerSpeed;
+    const p = this.state.player;
 
-    const nearR = Math.round(targetR);
-    const nearC = Math.round(targetC);
+    if (p.nextDir !== p.dir) {
+      const v = this.dirVectors(p.nextDir);
+      const nr = Math.round(p.r) + v[0];
+      let nc = Math.round(p.c) + v[1];
+      if (p.r === 7) { if (nc < 0) nc += this.COLS; if (nc >= this.COLS) nc -= this.COLS; }
+      if (this.isWalkable(nr, nc)) p.dir = p.nextDir;
+    }
 
-    if (this.isWalkable(nearR, nearC)) {
+    const dirV = this.dirVectors(p.dir);
+    let targetR = p.r + dirV[0] * speed * 0.05;
+    let targetC = p.c + dirV[1] * speed * 0.05;
+
+    let nearC = Math.round(targetC);
+    if (Math.round(p.r) === 7) { if (nearC < 0) nearC += this.COLS; if (nearC >= this.COLS) nearC -= this.COLS; }
+
+    if (this.isWalkable(Math.round(targetR), nearC)) {
       p.r = targetR;
       p.c = targetC;
       p.moving = true;
     } else {
       const snapR = Math.round(p.r);
-      const snapC = Math.round(p.c);
+      let snapC = Math.round(p.c);
+      if (Math.round(p.r) === 7) { if (snapC < 0) snapC += this.COLS; if (snapC >= this.COLS) snapC -= this.COLS; }
       if (Math.abs(p.r - snapR) < 0.15 && Math.abs(p.c - snapC) < 0.15) {
         p.r = snapR;
         p.c = snapC;
       } else {
-        p.r += dr * speed * 0.04;
-        p.c += dc * speed * 0.04;
+        p.r += dirV[0] * speed * 0.04;
+        p.c += dirV[1] * speed * 0.04;
       }
       p.moving = false;
     }
 
+    if (p.c < 0) p.c += this.COLS;
+    if (p.c >= this.COLS) p.c -= this.COLS;
+
     p.mouthOpen = (Math.sin(this.state.frame * 0.15) + 1) * 0.4;
 
-    const pr = Math.round(p.r), pc = Math.round(p.c);
+    // ── Food collection ──
+    const pr = Math.round(p.r);
+    let pc = Math.round(p.c);
+    if (pr === 7) { if (pc < 0) pc += this.COLS; if (pc >= this.COLS) pc -= this.COLS; }
     for (const f of this.state.foods) {
       if (!f.eaten && f.r === pr && f.c === pc) {
         f.eaten = true;
@@ -500,9 +599,7 @@ class PacmanGame {
         this.scoreEl.textContent = this.state.score;
         if (f.power) {
           this.state.powerTime = 420;
-          for (const g of this.state.ghosts) {
-            if (!g.eaten) g.frightened = true;
-          }
+          for (const g of this.state.ghosts) { if (!g.eaten) { g.frightened = true; g.dir ^= 1; } }
           this.playPower();
         } else {
           this.playChomp();
@@ -510,64 +607,64 @@ class PacmanGame {
       }
     }
 
-    if (this.state.powerTime > 0) {
-      this.state.powerTime--;
-    }
+    if (this.state.powerTime > 0) this.state.powerTime--;
 
+    // ── Ghost AI ──
     for (const g of this.state.ghosts) {
       if (g.eaten) {
         g.eatenTimer--;
         if (g.eatenTimer <= 0) {
           g.r = g.spawnR; g.c = g.spawnC;
-          g.eaten = false;
-          g.frightened = false;
+          g.eaten = false; g.frightened = false;
         }
         continue;
       }
 
       g.frightened = this.state.powerTime > 0;
 
-      let gdr, gdc;
-      if (g.frightened) {
-        gdr = Math.sign(g.r - this.state.player.r);
-        gdc = Math.sign(g.c - this.state.player.c);
-        if (Math.random() < 0.15) {
-          const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-          const d = dirs[Math.floor(Math.random() * 4)];
-          gdr = d[0]; gdc = d[1];
-        }
-      } else {
-        gdr = Math.sign(this.state.player.r - g.r);
-        gdc = Math.sign(this.state.player.c - g.c);
+      // At cell center → pick direction toward target
+      const cR = Math.round(g.r);
+      let cC = Math.round(g.c);
+      if (cR === 7) { if (cC < 0) cC += this.COLS; if (cC >= this.COLS) cC -= this.COLS; }
+      const atCenter = Math.abs(g.r - cR) < 0.12 && Math.abs(g.c - cC) < 0.12;
+
+      if (atCenter) {
+        g.r = cR;
+        g.c = cC;
+        const target = this.getGhostTarget(g);
+        g.dir = g.frightened ? this.pickFrightenedDirection(g) : this.pickGhostDirection(g, target.r, target.c);
       }
 
       const gs = g.speed * (g.frightened ? 0.025 : 0.04);
-      const canR = this.isWalkable(Math.round(g.r + gdr), Math.round(g.c));
-      const canC = this.isWalkable(Math.round(g.r), Math.round(g.c + gdc));
+      const gv = this.dirVectors(g.dir);
+      let gNextR = g.r + gv[0] * gs;
+      let gNextC = g.c + gv[1] * gs;
 
-      if (canR && (Math.random() > 0.3 || !canC)) {
-        g.r += gdr * gs;
-      } else if (canC) {
-        g.c += gdc * gs;
+      let gNearC = Math.round(gNextC);
+      if (Math.round(gNextR) === 7) { if (gNearC < 0) gNearC += this.COLS; if (gNearC >= this.COLS) gNearC -= this.COLS; }
+
+      if (this.isWalkable(Math.round(gNextR), gNearC)) {
+        g.r = gNextR;
+        g.c = gNextC;
       } else {
-        g.c += (Math.random() > 0.5 ? 1 : -1) * gs * 0.5;
+        g.r = cR;
+        g.c = cC;
       }
 
-      g.r = Math.max(0.5, Math.min(this.ROWS - 1.5, g.r));
-      g.c = Math.max(0.5, Math.min(this.COLS - 1.5, g.c));
-
-      const gpr = Math.round(g.r), gpc = Math.round(g.c);
-      if (this.isWalkable(gpr, gpc)) {
-        g.r = gpr;
-        g.c = gpc;
-      }
+      if (g.c < 0) g.c += this.COLS;
+      if (g.c >= this.COLS) g.c -= this.COLS;
     }
 
-    const pr2 = Math.round(p.r), pc2 = Math.round(p.c);
+    // ── Ghost–player collision ──
+    const pr2 = Math.round(p.r);
+    let pc2 = Math.round(p.c);
+    if (pr2 === 7) { if (pc2 < 0) pc2 += this.COLS; if (pc2 >= this.COLS) pc2 -= this.COLS; }
     if (this.state.immune <= 0) {
       for (const g of this.state.ghosts) {
         if (g.eaten) continue;
-        const gr = Math.round(g.r), gc = Math.round(g.c);
+        const gr = Math.round(g.r);
+        let gc = Math.round(g.c);
+        if (gr === 7) { if (gc < 0) gc += this.COLS; if (gc >= this.COLS) gc -= this.COLS; }
         if (pr2 === gr && pc2 === gc) {
           if (g.frightened) {
             g.eaten = true;
@@ -578,10 +675,7 @@ class PacmanGame {
             this.playEatGhost();
           } else {
             this.state.lives--;
-            if (this.state.lives <= 0) {
-              this.gameOver();
-              return;
-            }
+            if (this.state.lives <= 0) { this.gameOver(); return; }
             this.resetLevel();
             return;
           }
