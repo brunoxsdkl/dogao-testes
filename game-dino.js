@@ -55,6 +55,8 @@ class DinoGame {
     this.bindEvents();
     this.resetPositions();
     this.render();
+    this._last = performance.now();
+    this.loop();
   }
 
   createUI() {
