@@ -6,7 +6,14 @@ class DinoGame {
     this.running = true;
     this._last = null;
 
-    this.uiContainer = null;
+    this.CHARACTERS = [
+      { id: "hotdog", label: "Hot Dog", emoji: "🌭", description: "O classico!" },
+      { id: "burger", label: "X-Burguer", emoji: "🍔", description: "Poderoso!" },
+      { id: "dog", label: "Dogao", emoji: "🐕", image: "assets/dog-character-y2uiqon.png", description: "Mascote!" },
+    ];
+
+    this.dogImage = new Image();
+    this.dogImage.src = "assets/dog-character-y2uiqon.png";
 
     this.setupCanvas();
     this.init();
@@ -14,42 +21,37 @@ class DinoGame {
 
   setupCanvas() {
     this.canvas.width = 800;
-    this.canvas.height = 300;
+    this.canvas.height = 400;
     this.canvas.style.width = "100%";
     this.canvas.style.height = "100%";
-    this.canvas.style.maxHeight = "300px";
     this.canvas.style.display = "block";
     this.canvas.style.margin = "0 auto";
   }
 
   init() {
-    const state = {
+    this.state = {
       mode: "start",
       score: 0,
-      highScore: Number(localStorage.getItem("dino_highscore") || 0),
-      speed: 6,
-      baseSpeed: 6,
+      highScore: Number(localStorage.getItem("dogao_runner_highscore") || 0),
+      speed: 5,
+      baseSpeed: 5,
       groundOffset: 0,
-      dino: { x: 60, y: 0, width: 40, height: 48, vy: 0, jumping: false, ducking: false },
+      character: "hotdog",
+      runner: { x: 80, y: 0, width: 50, height: 55, vy: 0, jumping: false },
       obstacles: [],
-      clouds: [],
+      buildings: [],
       frame: 0,
-      ground: [],
       gameTime: 0,
     };
 
-    const CONSTANTS = {
-      gravity: 0.6,
-      jumpForce: -12,
-      groundY: 250,
-      minObstacleInterval: 60,
-      maxObstacleInterval: 120,
-      maxSpeed: 13,
+    this.CONSTANTS = {
+      gravity: 0.55,
+      jumpForce: -11,
+      groundY: 340,
+      minInterval: 50,
+      maxInterval: 110,
+      maxSpeed: 12,
     };
-
-    this.state = state;
-    this.CONSTANTS = CONSTANTS;
-    this._keys = {};
 
     this.createUI();
     this.bindEvents();
@@ -60,57 +62,71 @@ class DinoGame {
   }
 
   createUI() {
-    const container = this.canvas.parentElement;
-    this.uiContainer = document.createElement("div");
-    this.uiContainer.id = "dino-ui";
-    this.uiContainer.style.cssText = `
-      position: absolute; top: 0; left: 0; right: 0;
-      pointer-events: none; font-family: 'Press Start 2P', monospace;
-    `;
-    this.uiContainer.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;padding:12px 16px;gap:16px;font-size:14px;color:#535353;">
-        <span>🏆 <span id="dino-high">${this.state.highScore}</span></span>
-        <span>⭐ <span id="dino-score">0</span></span>
+    const c = this.canvas.parentElement;
+    this.ui = document.createElement("div");
+    this.ui.id = "dino-ui";
+    this.ui.style.cssText = `position:absolute;top:0;left:0;right:0;pointer-events:none;font-family:'Press Start 2P',monospace;`;
+    this.ui.innerHTML = `
+      <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:20px;font-size:13px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);z-index:5;">
+        <span>🏆 <span id="dr-high">${this.state.highScore}</span></span>
+        <span>⭐ <span id="dr-score">0</span></span>
       </div>
-      <div id="dino-start" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:auto;cursor:pointer;">
-        <div style="font-size:48px;margin-bottom:8px;">🦖</div>
-        <div style="font-size:12px;color:#535353;background:rgba(255,255,255,0.9);padding:10px 20px;border-radius:8px;border:2px solid #535353;">
-          PRESSIONE ESPAÇO<br><small style="font-size:8px;color:#999;">OU CLIQUE PARA COMEÇAR</small>
+      <div id="dr-char-select" style="position:absolute;top:40px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto;z-index:5;"></div>
+      <div id="dr-start" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:auto;cursor:pointer;z-index:10;">
+        <div style="font-size:40px;margin-bottom:6px;">🌭</div>
+        <div style="font-size:11px;color:#fff;background:rgba(200,16,16,0.9);padding:10px 22px;border-radius:10px;border:2px solid #facc15;">
+          PRESSIONE ESPAÇO<br><small style="font-size:7px;color:rgba(255,255,255,0.7);">ESCOLHA O PERSONAGEM ACIMA</small>
         </div>
       </div>
-      <div id="dino-gameover" class="hidden" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:auto;cursor:pointer;">
-        <div style="font-size:32px;margin-bottom:8px;">💀</div>
-        <div style="font-size:11px;color:#535353;background:rgba(255,255,255,0.9);padding:10px 20px;border-radius:8px;border:2px solid #535353;">
-          GAME OVER<br><small style="font-size:8px;color:#999;">PRESSIONE ESPAÇO</small>
+      <div id="dr-gameover" class="hidden" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:auto;cursor:pointer;z-index:10;">
+        <div style="font-size:28px;margin-bottom:6px;">💥</div>
+        <div style="font-size:11px;color:#fff;background:rgba(200,16,16,0.9);padding:10px 22px;border-radius:10px;border:2px solid #facc15;">
+          GAME OVER<br><small style="font-size:7px;color:rgba(255,255,255,0.7);">PRESSIONE ESPAÇO</small>
         </div>
       </div>
     `;
-    container.appendChild(this.uiContainer);
+    c.appendChild(this.ui);
 
-    this.scoreEl = document.getElementById("dino-score");
-    this.highEl = document.getElementById("dino-high");
-    this.startEl = document.getElementById("dino-start");
-    this.gameoverEl = document.getElementById("dino-gameover");
+    this.scoreEl = document.getElementById("dr-score");
+    this.highEl = document.getElementById("dr-high");
+    this.startEl = document.getElementById("dr-start");
+    this.gameoverEl = document.getElementById("dr-gameover");
+    this.charSelectEl = document.getElementById("dr-char-select");
+
+    for (const ch of this.CHARACTERS) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.innerHTML = ch.emoji;
+      btn.style.cssText = `
+        width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);
+        background:rgba(0,0,0,0.3);font-size:18px;cursor:pointer;pointer-events:auto;
+        transition:all 0.2s;display:grid;place-items:center;
+      `;
+      btn.title = ch.label;
+      if (ch.id === this.state.character) btn.style.borderColor = "#facc15";
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.state.character = ch.id;
+        for (const b of this.charSelectEl.children) b.style.borderColor = "rgba(255,255,255,0.3)";
+        btn.style.borderColor = "#facc15";
+      });
+      this.charSelectEl.appendChild(btn);
+    }
   }
 
   resetPositions() {
-    const g = this.CONSTANTS.groundY;
-    this.state.dino.y = g - this.state.dino.height;
-    this.state.dino.vy = 0;
+    this.state.runner.y = this.CONSTANTS.groundY - this.state.runner.height;
+    this.state.runner.vy = 0;
     this.state.obstacles = [];
-    this.state.clouds = [];
-    this.state.ground = [];
 
-    for (let x = 0; x < this.canvas.width + 100; x += 20) {
-      this.state.ground.push({ x, y: g });
-    }
-
-    for (let i = 0; i < 4; i++) {
-      this.state.clouds.push({
-        x: Math.random() * this.canvas.width,
-        y: 20 + Math.random() * 60,
-        size: 20 + Math.random() * 30,
-        speed: 0.3 + Math.random() * 0.3,
+    this.state.buildings = [];
+    for (let i = 0; i < 8; i++) {
+      this.state.buildings.push({
+        x: i * 110 + Math.random() * 40,
+        w: 50 + Math.random() * 50,
+        h: 60 + Math.random() * 120,
+        color: ["#C81010","#B80E0E","#A0392B","#8B0000","#CC1111","#D4903C","#E82020","#AA0E0E"][i % 8],
+        windows: Math.floor(2 + Math.random() * 4),
       });
     }
   }
@@ -121,12 +137,10 @@ class DinoGame {
     this.state.speed = this.state.baseSpeed;
     this.state.gameTime = 0;
     this.state.frame = 0;
-    this.state.dino.y = this.CONSTANTS.groundY - this.state.dino.height;
-    this.state.dino.vy = 0;
-    this.state.dino.jumping = false;
+    this.state.runner.y = this.CONSTANTS.groundY - this.state.runner.height;
+    this.state.runner.vy = 0;
+    this.state.runner.jumping = false;
     this.state.obstacles = [];
-    this.resetPositions();
-    this.scoreEl.textContent = "0";
     this.startEl.classList.add("hidden");
     this.gameoverEl.classList.add("hidden");
   }
@@ -134,68 +148,36 @@ class DinoGame {
   gameOver() {
     if (this.state.mode !== "playing") return;
     this.state.mode = "gameover";
-
     if (this.state.score > this.state.highScore) {
       this.state.highScore = this.state.score;
-      localStorage.setItem("dino_highscore", String(this.state.highScore));
+      localStorage.setItem("dogao_runner_highscore", String(this.state.highScore));
       this.highEl.textContent = this.state.highScore;
     }
-
     this.gameoverEl.classList.remove("hidden");
   }
 
   jump() {
-    if (this.state.mode === "start") {
-      this.startGame();
-      return;
+    if (this.state.mode === "start") { this.startGame(); return; }
+    if (this.state.mode === "gameover") { this.startGame(); return; }
+    if (this.state.mode === "playing" && !this.state.runner.jumping) {
+      this.state.runner.vy = this.CONSTANTS.jumpForce;
+      this.state.runner.jumping = true;
     }
-    if (this.state.mode === "gameover") {
-      this.startGame();
-      return;
-    }
-    if (this.state.mode === "playing") {
-      if (!this.state.dino.jumping) {
-        this.state.dino.vy = this.CONSTANTS.jumpForce;
-        this.state.dino.jumping = true;
-      }
-    }
-  }
-
-  duck() {
-    if (this.state.mode === "playing" && this.state.dino.jumping) {
-      this.state.dino.vy += 2;
-    }
-    if (this.state.mode === "playing" && !this.state.dino.jumping) {
-      this.state.dino.ducking = true;
-    }
-  }
-
-  unduck() {
-    this.state.dino.ducking = false;
   }
 
   spawnObstacle() {
     const types = [
-      {
-        width: 20 + Math.random() * 10,
-        height: 35 + Math.random() * 15,
-        color: "#535353",
-      },
-      {
-        width: 30 + Math.random() * 15,
-        height: 25 + Math.random() * 10,
-        color: "#6B6B6B",
-      },
+      { w: 18, h: 30, color: "#C81010", detail: "#8B0000" },
+      { w: 14, h: 38, color: "#E82020", detail: "#AA0E0E" },
+      { w: 22, h: 25, color: "#D4903C", detail: "#B8752E" },
+      { w: 16, h: 35, color: "#CC1111", detail: "#8B0000" },
+      { w: 20, h: 28, color: "#FF6600", detail: "#CC5500" },
     ];
-    const type = types[Math.floor(Math.random() * types.length)];
-
+    const t = types[Math.floor(Math.random() * types.length)];
     this.state.obstacles.push({
       x: this.canvas.width + 20,
-      y: this.CONSTANTS.groundY - type.height,
-      width: type.width,
-      height: type.height,
-      color: type.color,
-      passed: false,
+      y: this.CONSTANTS.groundY - t.h,
+      w: t.w, h: t.h, color: t.color, detail: t.detail, passed: false,
     });
   }
 
@@ -204,67 +186,35 @@ class DinoGame {
 
     this.state.frame++;
     this.state.gameTime += 1 / 60;
-
-    this.state.speed = Math.min(
-      this.CONSTANTS.maxSpeed,
-      this.state.baseSpeed + Math.floor(this.state.gameTime / 5) * 0.5
-    );
-
+    this.state.speed = Math.min(this.CONSTANTS.maxSpeed, this.state.baseSpeed + Math.floor(this.state.gameTime / 5) * 0.4);
     this.state.groundOffset += this.state.speed;
 
-    this.state.dino.vy += this.CONSTANTS.gravity;
-    this.state.dino.y += this.state.dino.vy;
-
-    if (this.state.dino.y >= this.CONSTANTS.groundY - this.state.dino.height) {
-      this.state.dino.y = this.CONSTANTS.groundY - this.state.dino.height;
-      this.state.dino.vy = 0;
-      this.state.dino.jumping = false;
+    this.state.runner.vy += this.CONSTANTS.gravity;
+    this.state.runner.y += this.state.runner.vy;
+    if (this.state.runner.y >= this.CONSTANTS.groundY - this.state.runner.height) {
+      this.state.runner.y = this.CONSTANTS.groundY - this.state.runner.height;
+      this.state.runner.vy = 0;
+      this.state.runner.jumping = false;
     }
 
-    const dinoH = this.state.dino.ducking ? this.state.dino.height * 0.6 : this.state.dino.height;
-    const dinoW = this.state.dino.ducking ? this.state.dino.width * 1.3 : this.state.dino.width;
+    const interval = Math.max(this.CONSTANTS.minInterval, this.CONSTANTS.maxInterval - Math.floor(this.state.gameTime / 3) * 3);
+    if (this.state.frame % interval === 0) this.spawnObstacle();
 
-    const interval = Math.max(
-      this.CONSTANTS.minObstacleInterval,
-      this.CONSTANTS.maxObstacleInterval - Math.floor(this.state.gameTime / 3) * 3
-    );
-    if (this.state.frame % interval === 0) {
-      this.spawnObstacle();
+    const r = this.state.runner;
+    const rLeft = r.x + 8, rRight = r.x + r.width - 8;
+    const rTop = r.y + 6, rBottom = r.y + r.height - 4;
+
+    for (const o of this.state.obstacles) {
+      o.x -= this.state.speed;
+      if (!o.passed && o.x + o.w < r.x) { o.passed = true; this.state.score++; this.scoreEl.textContent = this.state.score; }
+      if (rLeft < o.x + o.w && rRight > o.x && rTop < o.y + o.h && rBottom > o.y) this.gameOver();
     }
 
-    for (const obs of this.state.obstacles) {
-      obs.x -= this.state.speed;
+    this.state.obstacles = this.state.obstacles.filter((o) => o.x > -80);
 
-      if (!obs.passed && obs.x + obs.width < this.state.dino.x) {
-        obs.passed = true;
-        this.state.score++;
-        this.scoreEl.textContent = this.state.score;
-      }
-
-      const dinoLeft = this.state.dino.x;
-      const dinoRight = this.state.dino.x + dinoW;
-      const dinoTop = this.state.dino.y;
-      const dinoBottom = this.state.dino.y + dinoH;
-
-      const obsLeft = obs.x;
-      const obsRight = obs.x + obs.width;
-      const obsTop = obs.y;
-      const obsBottom = obs.y + obs.height;
-
-      if (dinoLeft < obsRight && dinoRight > obsLeft &&
-          dinoTop < obsBottom && dinoBottom > obsTop) {
-        this.gameOver();
-      }
-    }
-
-    this.state.obstacles = this.state.obstacles.filter((obs) => obs.x > -100);
-
-    for (const cloud of this.state.clouds) {
-      cloud.x -= cloud.speed;
-      if (cloud.x + cloud.size < -50) {
-        cloud.x = this.canvas.width + 50;
-        cloud.y = 20 + Math.random() * 60;
-      }
+    for (const b of this.state.buildings) {
+      b.x -= this.state.speed * 0.3;
+      if (b.x + b.w < -20) { b.x = this.canvas.width + 20 + Math.random() * 60; b.h = 60 + Math.random() * 120; }
     }
   }
 
@@ -275,207 +225,323 @@ class DinoGame {
 
     ctx.clearRect(0, 0, w, h);
 
-    ctx.fillStyle = "#f7f7f7";
-    ctx.fillRect(0, 0, w, h);
+    const grad = ctx.createLinearGradient(0, 0, 0, this.CONSTANTS.groundY);
+    grad.addColorStop(0, "#87CEEB");
+    grad.addColorStop(0.6, "#FFF0D0");
+    grad.addColorStop(1, "#FFD580");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, this.CONSTANTS.groundY);
 
-    for (const cloud of this.state.clouds) {
-      ctx.fillStyle = "rgba(200, 200, 200, 0.6)";
-      ctx.beginPath();
-      ctx.arc(cloud.x, cloud.y, cloud.size * 0.5, 0, Math.PI * 2);
-      ctx.arc(cloud.x + cloud.size * 0.4, cloud.y - cloud.size * 0.2, cloud.size * 0.35, 0, Math.PI * 2);
-      ctx.arc(cloud.x + cloud.size * 0.8, cloud.y, cloud.size * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+    for (const b of this.state.buildings) {
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, this.CONSTANTS.groundY - b.h, b.w, b.h);
+
+      ctx.strokeStyle = "rgba(0,0,0,0.15)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(b.x, this.CONSTANTS.groundY - b.h, b.w, b.h);
+
+      ctx.fillStyle = "rgba(255,215,0,0.25)";
+      const cols = 2;
+      const rows = b.windows;
+      const ww = 12, wh = 14, padX = 6, padY = 10;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const wx = b.x + padX + c * (ww + padX);
+          const wy = this.CONSTANTS.groundY - b.h + padY + r * (wh + padY);
+          if (wx + ww < b.x + b.w - 4 && wy + wh < this.CONSTANTS.groundY - 4) {
+            ctx.fillRect(wx, wy, ww, wh);
+          }
+        }
+      }
     }
 
     const gY = this.CONSTANTS.groundY;
-    ctx.strokeStyle = "#535353";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, gY);
-    ctx.lineTo(w, gY);
-    ctx.stroke();
+    const gGrad = ctx.createLinearGradient(0, gY, 0, h);
+    gGrad.addColorStop(0, "#CC1111");
+    gGrad.addColorStop(0.2, "#B80E0E");
+    gGrad.addColorStop(1, "#8B0000");
+    ctx.fillStyle = gGrad;
+    ctx.fillRect(0, gY, w, h - gY);
 
-    const dashOffset = this.state.groundOffset % 20;
-    ctx.strokeStyle = "#a0a0a0";
+    ctx.fillStyle = "#FFD700";
+    ctx.fillRect(0, gY, w, 4);
+
+    ctx.setLineDash([25, 18]);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
     ctx.lineWidth = 2;
-    ctx.setLineDash([10, 8]);
     ctx.beginPath();
-    ctx.moveTo(-dashOffset, gY + 8);
-    ctx.lineTo(w, gY + 8);
+    ctx.moveTo(0, gY + 14);
+    ctx.lineTo(w, gY + 14);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    for (const obs of this.state.obstacles) {
-      ctx.fillStyle = obs.color;
-      ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-
-      ctx.fillStyle = "rgba(0,0,0,0.1)";
-      ctx.fillRect(obs.x + 3, obs.y + 3, obs.width - 6, obs.height - 6);
-
-      ctx.fillStyle = "#444";
-      ctx.fillRect(obs.x + obs.width * 0.2, obs.y + obs.height * 0.1, obs.width * 0.15, obs.height * 0.3);
-
-      if (obs.height > 35) {
-        ctx.fillStyle = "#444";
-        ctx.fillRect(obs.x + obs.width * 0.65, obs.y + obs.height * 0.15, obs.width * 0.15, obs.height * 0.25);
-      }
+    ctx.fillStyle = "rgba(255,220,0,0.06)";
+    const tile = 40;
+    const off = this.state.groundOffset % (tile * 2);
+    for (let x = -tile + off; x < w + tile; x += tile) {
+      ctx.fillRect(x, gY + 4, tile / 3, h - gY);
     }
 
-    const dino = this.state.dino;
-    const dinoH = dino.ducking ? dino.height * 0.6 : dino.height;
-    const dinoW = dino.ducking ? dino.width * 1.3 : dino.width;
-    const dinoY = dino.ducking ? dino.y + dino.height - dinoH : dino.y;
+    for (const o of this.state.obstacles) {
+      ctx.fillStyle = o.color;
+      ctx.beginPath();
+      ctx.roundRect(o.x, o.y, o.w, o.h, 3);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255,215,0,0.3)";
+      for (let i = 0; i < 2; i++) {
+        ctx.fillRect(o.x + 3 + i * 7, o.y + 3, 4, Math.max(4, o.h * 0.3));
+      }
+
+      ctx.fillStyle = o.detail;
+      ctx.fillRect(o.x + 1, o.y + o.h - 4, o.w, 3);
+    }
+
+    this.drawCharacter(this.state.runner.x, this.state.runner.y);
+  }
+
+  drawCharacter(x, y) {
+    const id = this.state.character;
+    if (id === "hotdog") this.drawHotDog(x, y);
+    else if (id === "burger") this.drawBurger(x, y);
+    else if (id === "dog") this.drawDog(x, y);
+  }
+
+  drawHotDog(x, y) {
+    const ctx = this.ctx;
+    const w = this.state.runner.width;
+    const h = this.state.runner.height;
+    const hw = w / 2, hh = h / 2;
+    const bounce = this.state.runner.jumping ? 0 : Math.abs(Math.sin(this.state.frame * 0.12)) * 3;
 
     ctx.save();
+    ctx.translate(x + hw, y + hh + (this.state.mode !== "gameover" ? -bounce : 0));
 
-    const bounceOffset = (this.state.mode === "playing" || this.state.mode === "start")
-      ? Math.abs(Math.sin(this.state.frame * 0.1)) * 2 : 0;
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.beginPath();
+    ctx.ellipse(2, hh * 0.6 + 4, hw * 0.7, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    if (dino.ducking) {
-      ctx.fillStyle = "#535353";
-      ctx.beginPath();
-      ctx.ellipse(dino.x + dinoW / 2, dinoY + dinoH / 2, dinoW / 2, dinoH / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.fillStyle = "#D4903C";
+    ctx.beginPath();
+    ctx.ellipse(0, hh * 0.2, hw * 0.9, hh * 0.55, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = "#B8752E"; ctx.lineWidth = 1; ctx.stroke();
 
-      ctx.fillStyle = "#444";
-      ctx.beginPath();
-      ctx.ellipse(dino.x + dinoW * 0.3, dinoY + dinoH * 0.3, 5, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.fillStyle = "#A0392B";
+    ctx.beginPath();
+    ctx.ellipse(0, -hh * 0.15, hw * 0.8, hh * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#7B2B20"; ctx.stroke();
 
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.arc(dino.x + dinoW * 0.3, dinoY + dinoH * 0.3, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.strokeStyle = "#F1C40F"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-hw * 0.5, -hh * 0.1);
+    for (let i = 0; i < 5; i++) {
+      const lx = -hw * 0.5 + (i + 1) * ((hw) / 5);
+      const ly = i % 2 === 0 ? -hh * 0.3 : hh * 0.15;
+      ctx.lineTo(lx, ly);
+    }
+    ctx.stroke();
 
-      ctx.fillStyle = "#222";
-      ctx.beginPath();
-      ctx.arc(dino.x + dinoW * 0.3, dinoY + dinoH * 0.3, 1.2, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.fillStyle = "#E8A84C";
+    ctx.beginPath();
+    ctx.ellipse(0, -hh * 0.4, hw * 0.9, hh * 0.5, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#D4903C"; ctx.stroke();
+
+    if (this.state.runner.jumping) {
+      const p = this.state.frame * 0.25;
+      ctx.strokeStyle = "#7B2B20"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-hw * 0.3, hh * 0.5);
+      ctx.lineTo(-hw * 0.3 - 4 + Math.sin(p) * 3, hh * 0.5 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hw * 0.3, hh * 0.5);
+      ctx.lineTo(hw * 0.3 + 4 - Math.sin(p) * 3, hh * 0.5 + 10); ctx.stroke();
     } else {
-      ctx.fillStyle = "#535353";
-      ctx.beginPath();
-      ctx.ellipse(dino.x + dinoW / 2, dinoY + dinoH / 2 - bounceOffset, dinoW / 2, dinoH / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "#444";
-      ctx.beginPath();
-      ctx.rect(dino.x + dinoW * 0.15, dinoY + dinoH * 0.1, dinoW * 0.7, dinoH * 0.15);
-      ctx.fill();
-
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.arc(dino.x + dinoW * 0.3, dinoY + dinoH * 0.25 - bounceOffset, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "#222";
-      ctx.beginPath();
-      ctx.arc(dino.x + dinoW * 0.3, dinoY + dinoH * 0.25 - bounceOffset, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.arc(dino.x + dinoW * 0.32, dinoY + dinoH * 0.23 - bounceOffset, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#535353";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(dino.x + dinoW * 0.55, dinoY + dinoH * 0.45 - bounceOffset, 4, 0.1, Math.PI - 0.1);
-      ctx.stroke();
-
-      if (this.state.dino.jumping) {
-        const legPhase = this.state.frame * 0.3;
-        ctx.strokeStyle = "#535353";
-        ctx.lineWidth = 3;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(dino.x + dinoW * 0.3, dinoY + dinoH);
-        ctx.lineTo(dino.x + dinoW * 0.3 - 5 + Math.sin(legPhase) * 3, dinoY + dinoH + 8);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(dino.x + dinoW * 0.7, dinoY + dinoH);
-        ctx.lineTo(dino.x + dinoW * 0.7 + 5 - Math.sin(legPhase) * 3, dinoY + dinoH + 8);
-        ctx.stroke();
-      } else {
-        const legPhase = Math.floor(this.state.frame / 6) % 2;
-        ctx.strokeStyle = "#535353";
-        ctx.lineWidth = 3;
-        ctx.lineCap = "round";
-        const lx1 = dino.x + dinoW * 0.3;
-        const lx2 = dino.x + dinoW * 0.7;
-        const by = dinoY + dinoH;
-        ctx.beginPath();
-        ctx.moveTo(lx1, by);
-        ctx.lineTo(lx1 + (legPhase === 0 ? 6 : -4), by + 10);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(lx2, by);
-        ctx.lineTo(lx2 + (legPhase === 0 ? -4 : 6), by + 10);
-        ctx.stroke();
-      }
+      const phase = Math.floor(this.state.frame / 5) % 2;
+      ctx.strokeStyle = "#7B2B20"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-hw * 0.3, hh * 0.5);
+      ctx.lineTo(-hw * 0.3 + (phase === 0 ? 5 : -3), hh * 0.5 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hw * 0.3, hh * 0.5);
+      ctx.lineTo(hw * 0.3 + (phase === 0 ? -3 : 5), hh * 0.5 + 10); ctx.stroke();
     }
 
+    this.drawFace(ctx, -hw * 0.2, hw * 0.2, -hh * 0.35, "#7B2B20", bounce);
     ctx.restore();
   }
 
-  bindEvents() {
-    this._keydownFn = (e) => {
-      if (e.code === "Space" || e.code === "ArrowUp") {
-        e.preventDefault();
-        this.jump();
-      }
-      if (e.code === "ArrowDown") {
-        e.preventDefault();
-        this.duck();
-      }
-    };
-    this._keyupFn = (e) => {
-      if (e.code === "ArrowDown") {
-        this.unduck();
-      }
-    };
-    this._pointerFn = (e) => {
-      e.preventDefault();
-      this.jump();
-    };
-    this._startClickFn = (e) => {
-      e.stopPropagation();
-      this.jump();
-    };
-    this._gameoverClickFn = (e) => {
-      e.stopPropagation();
-      this.jump();
-    };
+  drawBurger(x, y) {
+    const ctx = this.ctx;
+    const w = this.state.runner.width;
+    const h = this.state.runner.height;
+    const hw = w / 2, hh = h / 2;
+    const bounce = this.state.runner.jumping ? 0 : Math.abs(Math.sin(this.state.frame * 0.12)) * 3;
 
-    window.addEventListener("keydown", this._keydownFn);
-    window.addEventListener("keyup", this._keyupFn);
-    this.canvas.addEventListener("pointerdown", this._pointerFn);
-    if (this.startEl) this.startEl.addEventListener("click", this._startClickFn);
-    if (this.gameoverEl) this.gameoverEl.addEventListener("click", this._gameoverClickFn);
+    ctx.save();
+    ctx.translate(x + hw, y + hh + (this.state.mode !== "gameover" ? -bounce : 0));
+
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.beginPath();
+    ctx.ellipse(2, hh * 0.6 + 4, hw * 0.7, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#D4903C";
+    ctx.beginPath(); ctx.ellipse(0, hh * 0.3, hw * 0.9, hh * 0.35, 0, 0, Math.PI); ctx.fill();
+
+    ctx.fillStyle = "#3CB371";
+    ctx.beginPath(); ctx.ellipse(0, hh * 0.05, hw * 0.85, hh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "#8B4513";
+    ctx.beginPath(); ctx.ellipse(0, -hh * 0.15, hw * 0.8, hh * 0.25, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "#F4D03F";
+    ctx.beginPath(); ctx.ellipse(0, -hh * 0.35, hw * 0.85, hh * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "#E8A84C";
+    ctx.beginPath(); ctx.ellipse(0, -hh * 0.55, hw * 0.95, hh * 0.45, 0, Math.PI, Math.PI * 2); ctx.fill();
+
+    if (this.state.runner.jumping) {
+      const p = this.state.frame * 0.25;
+      ctx.strokeStyle = "#8B4513"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-hw * 0.3, hh * 0.5);
+      ctx.lineTo(-hw * 0.3 - 4 + Math.sin(p) * 3, hh * 0.5 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hw * 0.3, hh * 0.5);
+      ctx.lineTo(hw * 0.3 + 4 - Math.sin(p) * 3, hh * 0.5 + 10); ctx.stroke();
+    } else {
+      const phase = Math.floor(this.state.frame / 5) % 2;
+      ctx.strokeStyle = "#8B4513"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-hw * 0.3, hh * 0.5);
+      ctx.lineTo(-hw * 0.3 + (phase === 0 ? 5 : -3), hh * 0.5 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hw * 0.3, hh * 0.5);
+      ctx.lineTo(hw * 0.3 + (phase === 0 ? -3 : 5), hh * 0.5 + 10); ctx.stroke();
+    }
+
+    this.drawFace(ctx, -hw * 0.2, hw * 0.2, -hh * 0.65, "#8B4513", bounce);
+    ctx.restore();
+  }
+
+  drawDog(x, y) {
+    const ctx = this.ctx;
+    if (this.dogImage.complete && this.dogImage.naturalWidth) {
+      this.drawDogImage(x, y);
+      return;
+    }
+    const w = this.state.runner.width + 6;
+    const h = this.state.runner.height + 8;
+    const hw = w / 2, hh = h / 2;
+    const bounce = this.state.runner.jumping ? 0 : Math.abs(Math.sin(this.state.frame * 0.12)) * 3;
+
+    ctx.save();
+    ctx.translate(x + hw, y + hh + (this.state.mode !== "gameover" ? -bounce : 0));
+
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.beginPath(); ctx.ellipse(2, hh * 0.5 + 4, hw * 0.7, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "#FF6600";
+    ctx.beginPath(); ctx.ellipse(0, hh * 0.05, hw * 0.65, hh * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -hh * 0.4, hw * 0.5, hh * 0.45, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#FFCC99";
+    ctx.beginPath(); ctx.ellipse(0, -hh * 0.25, hw * 0.3, hh * 0.25, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#222";
+    ctx.beginPath(); ctx.ellipse(0, -hh * 0.3, hw * 0.1, hw * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = "#FF6600"; ctx.lineWidth = hw * 0.12; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-hw * 0.45, hh * 0.25);
+    ctx.quadraticCurveTo(-hw * 0.75, -hh * 0.1, -hw * 0.55, -hh * 0.35); ctx.stroke();
+
+    ctx.fillStyle = "#D4903C";
+    ctx.beginPath(); ctx.ellipse(hw * 0.3, -hh * 0.15, hw * 0.2, hh * 0.1, 0.3, 0, Math.PI * 2); ctx.fill();
+
+    if (this.state.runner.jumping) {
+      const p = this.state.frame * 0.25;
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-hw * 0.3, hh * 0.5);
+      ctx.lineTo(-hw * 0.3 - 4 + Math.sin(p) * 3, hh * 0.5 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hw * 0.3, hh * 0.5);
+      ctx.lineTo(hw * 0.3 + 4 - Math.sin(p) * 3, hh * 0.5 + 10); ctx.stroke();
+    } else {
+      const phase = Math.floor(this.state.frame / 5) % 2;
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-hw * 0.3, hh * 0.5);
+      ctx.lineTo(-hw * 0.3 + (phase === 0 ? 5 : -3), hh * 0.5 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hw * 0.3, hh * 0.5);
+      ctx.lineTo(hw * 0.3 + (phase === 0 ? -3 : 5), hh * 0.5 + 10); ctx.stroke();
+    }
+
+    this.drawFace(ctx, -hw * 0.15, hw * 0.15, -hh * 0.45, "#222", bounce);
+    ctx.restore();
+  }
+
+  drawDogImage(x, y) {
+    const ctx = this.ctx;
+    const w = 68, h = 68;
+    const bounce = this.state.runner.jumping ? 0 : Math.abs(Math.sin(this.state.frame * 0.12)) * 3;
+    ctx.save();
+    ctx.translate(x + this.state.runner.width / 2, y + this.state.runner.height / 2 + (this.state.mode !== "gameover" ? -bounce : 0));
+    ctx.fillStyle = "rgba(0,0,0,0.16)";
+    ctx.beginPath(); ctx.ellipse(0, h * 0.38, w * 0.32, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(this.dogImage, -w / 2, -h / 2, w, h);
+    if (this.state.runner.jumping) {
+      const p = this.state.frame * 0.25;
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-15, h * 0.35);
+      ctx.lineTo(-15 - 4 + Math.sin(p) * 3, h * 0.35 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(15, h * 0.35);
+      ctx.lineTo(15 + 4 - Math.sin(p) * 3, h * 0.35 + 10); ctx.stroke();
+    } else {
+      const phase = Math.floor(this.state.frame / 5) % 2;
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-15, h * 0.35);
+      ctx.lineTo(-15 + (phase === 0 ? 5 : -3), h * 0.35 + 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(15, h * 0.35);
+      ctx.lineTo(15 + (phase === 0 ? -3 : 5), h * 0.35 + 10); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawFace(ctx, lx, rx, ey, mc, bounce) {
+    const by = ey - (this.state.mode !== "gameover" ? bounce * 0.5 : 0);
+    ctx.fillStyle = "white";
+    ctx.beginPath(); ctx.arc(lx, by, 4.5, 0, Math.PI * 2); ctx.arc(rx, by, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#222";
+    ctx.beginPath(); ctx.arc(lx + 1, by + 1.5, 2.2, 0, Math.PI * 2); ctx.arc(rx + 1, by + 1.5, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.beginPath(); ctx.arc(lx + 1.5, by - 1.5, 1, 0, Math.PI * 2); ctx.arc(rx + 1.5, by - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = mc; ctx.lineWidth = 1.5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(0, by + 5, 3.5, 0.2, Math.PI - 0.2); ctx.stroke();
+  }
+
+  bindEvents() {
+    this._kd = (e) => {
+      if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); this.jump(); }
+    };
+    this._pd = (e) => { e.preventDefault(); this.jump(); };
+    this._sc = (e) => { e.stopPropagation(); this.jump(); };
+    this._gc = (e) => { e.stopPropagation(); this.jump(); };
+
+    window.addEventListener("keydown", this._kd);
+    this.canvas.addEventListener("pointerdown", this._pd);
+    if (this.startEl) this.startEl.addEventListener("click", this._sc);
+    if (this.gameoverEl) this.gameoverEl.addEventListener("click", this._gc);
   }
 
   loop() {
     const now = performance.now();
-    const elapsed = now - (this._last || now);
+    const e = now - (this._last || now);
     this._last = now;
-
-    const steps = Math.max(1, Math.min(3, Math.round(elapsed / 16.67)));
+    const steps = Math.max(1, Math.min(3, Math.round(e / 16.67)));
     for (let i = 0; i < steps; i++) this.updateGame();
     this.render();
-
-    if (this.running) {
-      this.animId = requestAnimationFrame(() => this.loop());
-    }
+    if (this.running) this.animId = requestAnimationFrame(() => this.loop());
   }
 
   destroy() {
     this.running = false;
     if (this.animId) cancelAnimationFrame(this.animId);
-    window.removeEventListener("keydown", this._keydownFn);
-    window.removeEventListener("keyup", this._keyupFn);
-    this.canvas.removeEventListener("pointerdown", this._pointerFn);
-    if (this.startEl) this.startEl.removeEventListener("click", this._startClickFn);
-    if (this.gameoverEl) this.gameoverEl.removeEventListener("click", this._gameoverClickFn);
-    if (this.uiContainer) this.uiContainer.remove();
+    window.removeEventListener("keydown", this._kd);
+    this.canvas.removeEventListener("pointerdown", this._pd);
+    if (this.startEl) this.startEl.removeEventListener("click", this._sc);
+    if (this.gameoverEl) this.gameoverEl.removeEventListener("click", this._gc);
+    if (this.ui) this.ui.remove();
   }
 }

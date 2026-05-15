@@ -39,7 +39,12 @@ button {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--bg-dark) 0%, #0f3460 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(200, 16, 16, 0.93) 0%,
+    rgba(180, 8, 8, 0.97) 60%,
+    rgba(140, 0, 0, 0.99) 100%
+  );
 }
 
 .hidden { display: none !important; }
@@ -51,20 +56,30 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: max(18px, env(safe-area-inset-top)) 24px max(22px, env(safe-area-inset-bottom));
   text-align: center;
   animation: fadeIn 0.4s ease-out both;
 }
 
+.menu-screen .brand-logo {
+  width: min(40vw, 160px);
+  max-height: 16svh;
+  object-fit: contain;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 12px 16px rgba(0, 0, 0, 0.35));
+  animation: dropIn 0.6s ease-out both;
+}
+
 .menu-header {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .menu-title {
   margin: 0;
   font-size: clamp(32px, 10vw, 56px);
   color: var(--yellow);
-  text-shadow: 0 4px 0 rgba(0,0,0,0.3);
+  text-shadow: 0 5px 0 rgba(0,0,0,0.2);
   animation: slideDown 0.5s ease-out both;
 }
 
@@ -72,16 +87,17 @@ button {
   margin: 8px 0 0;
   font-family: "Press Start 2P", monospace;
   font-size: clamp(8px, 2.5vw, 11px);
-  color: rgba(255,255,255,0.6);
+  color: rgba(254, 240, 138, 0.82);
   animation: slideDown 0.5s 0.1s ease-out both;
 }
 
 .game-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: min(100%, 400px);
+  gap: 14px;
+  width: min(100%, 380px);
   animation: slideUp 0.5s 0.2s ease-out both;
+  margin-bottom: 10px;
 }
 
 .game-card {
@@ -89,14 +105,15 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 20px;
+  padding: 18px 16px;
   border-radius: 20px;
-  background: var(--bg-card);
-  border: 2px solid rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(254, 240, 138, 0.2);
   color: white;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 
 .game-card::before {
@@ -110,7 +127,8 @@ button {
 
 .game-card:hover, .game-card:active {
   transform: scale(1.02);
-  border-color: var(--card-color);
+  border-color: var(--yellow);
+  background: rgba(250, 204, 21, 0.12);
 }
 
 .game-card:hover::before, .game-card:active::before {
@@ -126,12 +144,14 @@ button {
 .game-card-name {
   font-size: clamp(18px, 5vw, 24px);
   position: relative;
+  color: var(--yellow);
+  text-shadow: 0 2px 0 rgba(0,0,0,0.2);
 }
 
 .game-card-desc {
   font-family: "Press Start 2P", monospace;
   font-size: clamp(7px, 2vw, 9px);
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.55);
   position: relative;
 }
 
@@ -152,17 +172,18 @@ button {
   z-index: 100;
   padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(0,0,0,0.5);
-  color: white;
+  background: rgba(0,0,0,0.45);
+  color: var(--yellow);
   font-family: "Fredoka One", system-ui, sans-serif;
   font-size: 14px;
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(254, 240, 138, 0.3);
   transition: all 0.2s ease;
 }
 
 .back-button:hover, .back-button:active {
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.65);
+  border-color: var(--yellow);
   transform: scale(0.96);
 }
 
