@@ -1,0 +1,79 @@
+const GAMES = [
+  {
+    id: "hotdog",
+    name: "Hot Dog Dash",
+    emoji: "🌭",
+    description: "Flappy Bird com hot dog",
+    color: "#c81010",
+  },
+  {
+    id: "dino",
+    name: "Dino Runner",
+    emoji: "🦖",
+    description: "Pule obstaculos igual no Chrome",
+    color: "#535353",
+  },
+];
+
+const menuScreen = document.getElementById("menuScreen");
+const gameContainer = document.getElementById("gameContainer");
+const backButton = document.getElementById("backButton");
+const gameList = document.getElementById("gameList");
+
+let currentGame = null;
+let gameInstances = {};
+
+function renderMenu() {
+  gameList.innerHTML = "";
+  for (const game of GAMES) {
+    const card = document.createElement("button");
+    card.className = "game-card";
+    card.type = "button";
+    card.style.setProperty("--card-color", game.color);
+    card.innerHTML = `
+      <span class="game-card-emoji">${game.emoji}</span>
+      <strong class="game-card-name">${game.name}</strong>
+      <small class="game-card-desc">${game.description}</small>
+    `;
+    card.addEventListener("click", () => launchGame(game.id));
+    gameList.appendChild(card);
+  }
+}
+
+function launchGame(id) {
+  currentGame = id;
+  menuScreen.classList.add("hidden");
+  gameContainer.classList.remove("hidden");
+  backButton.classList.remove("hidden");
+
+  gameContainer.innerHTML = "";
+  const canvas = document.createElement("canvas");
+  canvas.id = "gameCanvas";
+  gameContainer.appendChild(canvas);
+
+  if (gameInstances[id]) {
+    gameInstances[id].destroy();
+  }
+
+  if (id === "hotdog") {
+    gameInstances[id] = new HotDogGame(canvas);
+  } else if (id === "dino") {
+    gameInstances[id] = new DinoGame(canvas);
+  }
+}
+
+function goBack() {
+  if (currentGame && gameInstances[currentGame]) {
+    gameInstances[currentGame].destroy();
+    gameInstances[currentGame] = null;
+  }
+  currentGame = null;
+  gameContainer.innerHTML = "";
+  gameContainer.classList.add("hidden");
+  backButton.classList.add("hidden");
+  menuScreen.classList.remove("hidden");
+}
+
+backButton.addEventListener("click", goBack);
+
+renderMenu();

@@ -1,124 +1,34 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#b80e0e" />
-    <meta
-      name="description"
-      content="Jogo arcade mobile estilo Flappy Hot Dog para jogar no navegador."
-    />
-    <title>Hot Dog Dash</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="app" aria-label="Hot Dog Dash">
-      <canvas id="game" aria-label="Area do jogo"></canvas>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="description" content="Plataforma de jogos arcade" />
+  <title>Dogao Games</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app" id="app">
 
-      <div class="score" id="score">0</div>
+    <section class="screen menu-screen" id="menuScreen">
+      <div class="menu-header">
+        <h1 class="menu-title">Dogao Games</h1>
+        <p class="menu-subtitle">Escolha um jogo</p>
+      </div>
+      <div class="game-list" id="gameList"></div>
+    </section>
 
-      <button class="sound-button" id="soundButton" type="button" aria-label="Silenciar som">
-        🔊
-      </button>
+    <div id="gameContainer" class="game-container hidden"></div>
 
-      <section class="screen checkin-screen hidden" id="checkinScreen">
-        <div class="checkin-card">
-          <img
-            src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
-            alt="O Mega Dogao"
-          />
-          <span class="checkin-badge">CHECK-IN</span>
-          <h2>Siga O Mega Dogao</h2>
-          <p>Abra o Instagram da loja, siga o perfil e volte para liberar sua partida.</p>
-          <a
-            class="instagram-button"
-            id="instagramButton"
-            href="https://www.instagram.com/omegadogaocwb/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Abrir Instagram
-          </a>
-          <button class="confirm-follow-button" id="confirmFollowButton" type="button">
-            Ja segui, jogar
-          </button>
-          <button class="skip-checkin-button" id="closeCheckinButton" type="button">Voltar ao Instagram</button>
-        </div>
-      </section>
+    <button class="back-button hidden" id="backButton" type="button">← Voltar</button>
 
-      <section class="screen start-screen hidden" id="startScreen">
-        <img
-          class="brand-logo"
-          src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
-          alt="O Mega Dogao"
-        />
-
-        <div class="title-stack">
-          <h1>Flappy</h1>
-          <h2><span id="titleCharacter">Hot Dog</span> <span id="titleEmoji">🌭</span></h2>
-        </div>
-
-        <div class="hero-character" id="heroCharacter">🌭</div>
-        <p class="record" id="recordLine">RECORDE: 0</p>
-        <div class="device-log" id="deviceLog">
-          <span>ULTIMA PARTIDA</span>
-          <strong id="lastScoreLine">0 pontos</strong>
-          <small id="deviceLine">dispositivo local</small>
-        </div>
-
-        <div class="chooser">
-          <p>ESCOLHA SEU PERSONAGEM</p>
-          <div class="card-row" id="characterOptions"></div>
-        </div>
-
-        <div class="chooser">
-          <p>DIFICULDADE</p>
-          <div class="card-row" id="difficultyOptions"></div>
-        </div>
-
-        <button class="play-button" id="playButton" type="button">▶ JOGAR</button>
-        <button class="follow-status" id="followStatusButton" type="button">
-          Check-in Instagram pendente
-        </button>
-        <p class="hint">TOQUE OU PRESSIONE ESPACO</p>
-
-        <footer>PATROCINADO POR <strong>O MEGA DOGAO</strong> DESDE 2000</footer>
-      </section>
-
-      <section class="screen gameover-screen hidden" id="gameoverScreen">
-        <div class="gameover-card">
-          <img
-            src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
-            alt="O Mega Dogao"
-          />
-          <div class="result-emoji" id="resultEmoji">💥</div>
-          <h2 id="resultTitle">O CACHORRO PEGOU!</h2>
-          <p class="new-record hidden" id="newRecord">★ NOVO RECORDE! ★</p>
-
-          <div class="result-grid">
-            <div>
-              <span>PONTOS</span>
-              <strong id="finalScore">0</strong>
-            </div>
-            <div>
-              <span>RECORDE</span>
-              <strong id="bestScore">0</strong>
-            </div>
-          </div>
-          <p class="last-log" id="lastLogLine">Pontuacao salva neste dispositivo.</p>
-
-          <button class="again-button" id="againButton" type="button">↻ DE NOVO!</button>
-          <p class="card-footer">O MEGA DOGAO - DESDE 2000</p>
-        </div>
-      </section>
-    </main>
-
-    <script src="game.js"></script>
-  </body>
+  </main>
+  <script src="menu.js"></script>
+  <script src="game-hotdog.js"></script>
+  <script src="game-dino.js"></script>
+</body>
 </html>
