@@ -31,8 +31,6 @@ class PacmanGame {
   }
 
   setupCanvas() {
-    this.canvas.width = 500;
-    this.canvas.height = 600;
     this.canvas.style.width = "100%";
     this.canvas.style.height = "100%";
     this.canvas.style.display = "block";
@@ -116,17 +114,22 @@ class PacmanGame {
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
-    const cw = this.COLS, ch = this.ROWS;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const canvasW = Math.max(320, Math.floor(rect.width));
+    const canvasH = Math.max(480, Math.floor(rect.height));
+    this.canvas.width = Math.floor(canvasW * dpr);
+    this.canvas.height = Math.floor(canvasH * dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const margin = 12;
-    const availW = w - margin * 2;
-    const availH = h - margin * 2;
-    const cellSize = Math.min(availW / cw, availH / ch);
+    const margin = 4;
+    const availW = canvasW - margin * 2;
+    const availH = canvasH - margin * 2 - 80;
+    const cellSize = Math.min(availW / this.COLS, availH / this.ROWS);
     this.CONSTANTS.cellSize = cellSize;
-    this.CONSTANTS.offsetX = (w - cellSize * cw) / 2;
-    this.CONSTANTS.offsetY = (h - cellSize * ch) / 2;
+    this.CONSTANTS.offsetX = (canvasW - cellSize * this.COLS) / 2;
+    this.CONSTANTS.offsetY = (canvasH - cellSize * this.ROWS) / 2 - 30;
+    this.CONSTANTS.canvasW = canvasW;
+    this.CONSTANTS.canvasH = canvasH;
   }
 
   createUI() {
@@ -135,11 +138,24 @@ class PacmanGame {
     this.ui.id = "pacman-ui";
 
     this.ui.innerHTML = `
-      <div id="pacman-hud" style="position:absolute;top:max(8px,env(safe-area-inset-top));left:0;right:0;z-index:5;display:none;justify-content:space-between;padding:0 14px;pointer-events:none;font-family:'Press Start 2P',monospace;font-size:8px;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.5);">
+      <div id="pacman-hud" style="position:absolute;top:max(4px,env(safe-area-inset-top));left:0;right:0;z-index:5;display:none;justify-content:space-between;padding:0 10px;pointer-events:none;font-family:'Press Start 2P',monospace;font-size:7px;color:white;text-shadow:0 2px 4px rgba(0,0,0,0.5);">
         <span>\uD83C\uDF2D <span id="pacman-score">0</span></span>
         <span>\uD83C\uDFC6 <span id="pacman-high">${this.state.highScore}</span></span>
       </div>
-      <button class="sound-button" id="pacman-soundBtn" type="button" aria-label="Silenciar som" style="top:max(10px,env(safe-area-inset-top));right:10px;">\uD83D\uDD0A</button>
+      <button class="sound-button" id="pacman-soundBtn" type="button" aria-label="Silenciar som" style="top:max(4px,env(safe-area-inset-top));right:4px;width:36px;height:36px;font-size:16px;">\uD83D\uDD0A</button>
+      <div id="pacman-dpad" style="position:absolute;bottom:max(8px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:10;display:none;gap:4px;pointer-events:none;">
+        <div style="display:grid;grid-template-columns:56px 56px 56px;grid-template-rows:56px 56px 56px;gap:4px;place-items:center;">
+          <div></div>
+          <button id="dpad-up" type="button" style="width:56px;height:56px;border-radius:50%;background:rgba(255,215,0,0.25);border:2px solid rgba(255,215,0,0.4);color:white;font-size:24px;display:grid;place-items:center;pointer-events:auto;touch-action:none;">\u25B2</button>
+          <div></div>
+          <button id="dpad-left" type="button" style="width:56px;height:56px;border-radius:50%;background:rgba(255,215,0,0.25);border:2px solid rgba(255,215,0,0.4);color:white;font-size:24px;display:grid;place-items:center;pointer-events:auto;touch-action:none;">\u25C0</button>
+          <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,215,0,0.12);border:2px solid rgba(255,215,0,0.2);color:white;font-size:20px;display:grid;place-items:center;">\uD83C\uDF2D</div>
+          <button id="dpad-right" type="button" style="width:56px;height:56px;border-radius:50%;background:rgba(255,215,0,0.25);border:2px solid rgba(255,215,0,0.4);color:white;font-size:24px;display:grid;place-items:center;pointer-events:auto;touch-action:none;">\u25B6</button>
+          <div></div>
+          <button id="dpad-down" type="button" style="width:56px;height:56px;border-radius:50%;background:rgba(255,215,0,0.25);border:2px solid rgba(255,215,0,0.4);color:white;font-size:24px;display:grid;place-items:center;pointer-events:auto;touch-action:none;">\u25BC</button>
+          <div></div>
+        </div>
+      </div>
       <section class="screen start-screen hidden" id="pacman-startScreen">
         <img class="brand-logo" src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png" alt="O Mega Dogao" />
         <div class="title-stack">
@@ -186,6 +202,11 @@ class PacmanGame {
     this.finalScore = document.getElementById("pacman-finalScore");
     this.bestScore = document.getElementById("pacman-bestScore");
     this.newRecord = document.getElementById("pacman-newRecord");
+    this.dpad = document.getElementById("pacman-dpad");
+    this.dpadUp = document.getElementById("dpad-up");
+    this.dpadDown = document.getElementById("dpad-down");
+    this.dpadLeft = document.getElementById("dpad-left");
+    this.dpadRight = document.getElementById("dpad-right");
 
     this.buildOptions();
   }
@@ -362,6 +383,7 @@ class PacmanGame {
     this.startScreen.classList.add("hidden");
     this.gameoverScreen.classList.add("hidden");
     this.hud.style.display = "flex";
+    this.dpad.style.display = "block";
     this.playMusic();
   }
 
@@ -370,6 +392,7 @@ class PacmanGame {
     this.state.mode = "gameover";
     this.stopMusic();
     this.playDeath();
+    this.dpad.style.display = "none";
 
     const isRecord = this.state.score > this.state.highScore;
     if (isRecord) {
@@ -704,8 +727,8 @@ class PacmanGame {
 
   render() {
     const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.CONSTANTS.canvasW;
+    const h = this.CONSTANTS.canvasH;
     const cs = this.CONSTANTS.cellSize;
     const ox = this.CONSTANTS.offsetX;
     const oy = this.CONSTANTS.offsetY;
@@ -761,9 +784,11 @@ class PacmanGame {
 
   bindEvents() {
     let startX = 0, startY = 0;
+    this._pointerActive = false;
 
     this._pd = (e) => {
       e.preventDefault();
+      this._pointerActive = true;
       const rect = this.canvas.getBoundingClientRect();
       const touch = e.touches ? e.touches[0] : e;
       startX = touch.clientX;
@@ -774,13 +799,13 @@ class PacmanGame {
 
     this._pu = (e) => {
       e.preventDefault();
+      this._pointerActive = false;
       if (startX === 0) return;
-      const rect = this.canvas.getBoundingClientRect();
       const touch = e.changedTouches ? e.changedTouches[0] : e;
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
       const absDx = Math.abs(dx), absDy = Math.abs(dy);
-      if (absDx < 15 && absDy < 15) return;
+      if (absDx < 8 && absDy < 8) return;
 
       if (absDx > absDy) {
         this.state.player.nextDir = dx > 0 ? 3 : 2;
@@ -794,16 +819,17 @@ class PacmanGame {
     this._pm = (e) => {
       e.preventDefault();
       if (this.state.mode === "playing" && this._pointerActive) {
-        const rect = this.canvas.getBoundingClientRect();
         const touch = e.touches ? e.touches[0] : e;
         const dx = touch.clientX - startX;
         const dy = touch.clientY - startY;
-        if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+        if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
           if (Math.abs(dx) > Math.abs(dy)) {
             this.state.player.nextDir = dx > 0 ? 3 : 2;
           } else {
             this.state.player.nextDir = dy > 0 ? 1 : 0;
           }
+          startX = touch.clientX;
+          startY = touch.clientY;
         }
       }
     };
@@ -825,8 +851,12 @@ class PacmanGame {
     this._play = (e) => { e.stopPropagation(); this.startGame(); };
     this._again = (e) => { e.stopPropagation(); this.startGame(); };
     this._soundToggle = (e) => this.toggleSound(e);
-
     this._resize = () => this.resize();
+
+    this._dpadUp = () => { this.state.player.nextDir = 0; };
+    this._dpadDown = () => { this.state.player.nextDir = 1; };
+    this._dpadLeft = () => { this.state.player.nextDir = 2; };
+    this._dpadRight = () => { this.state.player.nextDir = 3; };
 
     this.canvas.addEventListener("pointerdown", this._pd);
     this.canvas.addEventListener("pointerup", this._pu);
@@ -839,6 +869,14 @@ class PacmanGame {
     if (this.playBtn) this.playBtn.addEventListener("click", this._play);
     if (this.againBtn) this.againBtn.addEventListener("click", this._again);
     if (this.soundBtn) this.soundBtn.addEventListener("click", this._soundToggle);
+    if (this.dpadUp) this.dpadUp.addEventListener("pointerdown", this._dpadUp);
+    if (this.dpadDown) this.dpadDown.addEventListener("pointerdown", this._dpadDown);
+    if (this.dpadLeft) this.dpadLeft.addEventListener("pointerdown", this._dpadLeft);
+    if (this.dpadRight) this.dpadRight.addEventListener("pointerdown", this._dpadRight);
+    if (this.dpadUp) this.dpadUp.addEventListener("touchstart", (e) => { e.preventDefault(); this.state.player.nextDir = 0; }, { passive: false });
+    if (this.dpadDown) this.dpadDown.addEventListener("touchstart", (e) => { e.preventDefault(); this.state.player.nextDir = 1; }, { passive: false });
+    if (this.dpadLeft) this.dpadLeft.addEventListener("touchstart", (e) => { e.preventDefault(); this.state.player.nextDir = 2; }, { passive: false });
+    if (this.dpadRight) this.dpadRight.addEventListener("touchstart", (e) => { e.preventDefault(); this.state.player.nextDir = 3; }, { passive: false });
   }
 
   loop() {
@@ -866,6 +904,10 @@ class PacmanGame {
     if (this.playBtn) this.playBtn.removeEventListener("click", this._play);
     if (this.againBtn) this.againBtn.removeEventListener("click", this._again);
     if (this.soundBtn) this.soundBtn.removeEventListener("click", this._soundToggle);
+    if (this.dpadUp) this.dpadUp.removeEventListener("pointerdown", this._dpadUp);
+    if (this.dpadDown) this.dpadDown.removeEventListener("pointerdown", this._dpadDown);
+    if (this.dpadLeft) this.dpadLeft.removeEventListener("pointerdown", this._dpadLeft);
+    if (this.dpadRight) this.dpadRight.removeEventListener("pointerdown", this._dpadRight);
     if (this.ui) this.ui.remove();
   }
 }
