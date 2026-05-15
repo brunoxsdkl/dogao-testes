@@ -97,7 +97,7 @@ class BlasterGame {
         <div class="chooser"><p>ESCOLHA SEU PERSONAGEM</p><div class="card-row" id="blaster-charOptions"></div></div>
         <div class="chooser"><p>DIFICULDADE</p><div class="card-row" id="blaster-diffOptions"></div></div>
         <button class="play-button" id="blaster-playBtn" type="button">\u25B6 JOGAR</button>
-        <p class="hint">ARRASTE PARA MOVER</p>
+        <p class="hint">ARRASTE PARA MOVER - ATIRE NOS INGREDIENTES</p>
       </section>
       <section class="screen gameover-screen hidden" id="blaster-gameoverScreen">
         <div class="gameover-card">
@@ -322,17 +322,30 @@ class BlasterGame {
     const speedMap = { easy: 0.8, medium: 1.2, hard: 1.8 };
     const baseSpeed = speedMap[this.state.difficulty] || 1.2;
     const speed = baseSpeed + Math.random() * 0.6 + Math.floor(this.state.score / 10) * 0.15;
-    const size = 22 + Math.random() * 16;
-    const type = Math.random() > 0.7 ? "fast" : "normal";
+    const size = 26 + Math.random() * 16;
+
+    const FOOD_TYPES = [
+      { id: "sausage", w: 18, h: 28 },
+      { id: "bread", w: 30, h: 18 },
+      { id: "tomato", w: 22, h: 22 },
+      { id: "potato", w: 24, h: 18 },
+      { id: "ketchup", w: 20, h: 26 },
+    ];
+
+    const food = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
+    const fast = Math.random() > 0.7;
+
     this.state.enemies.push({
       x: 20 + Math.random() * (w - 40),
       y: -size,
-      w: size,
-      h: size,
-      speed: type === "fast" ? speed * 1.5 : speed,
+      food,
+      w: food.w,
+      h: food.h,
+      speed: fast ? speed * 1.6 : speed,
       hp: 1,
-      type,
+      fast,
       wobble: Math.random() * Math.PI * 2,
+      rot: Math.random() * 0.4 - 0.2,
     });
   }
 
@@ -380,7 +393,7 @@ class BlasterGame {
     for (const e of this.state.enemies) {
       e.y += e.speed;
       e.wobble += 0.05;
-      if (e.type === "fast") e.x += Math.sin(e.wobble) * 1.2;
+      if (e.fast) e.x += Math.sin(e.wobble) * 1.2;
 
       for (const b of this.state.bullets) {
         if (b.x < e.x + e.w && b.x + b.w > e.x && b.y < e.y + e.h && b.y + b.h > e.y) {
@@ -481,6 +494,115 @@ class BlasterGame {
     ctx.stroke();
   }
 
+  drawEnemy(e) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(e.x + e.w / 2, e.y + e.h / 2);
+    ctx.rotate(e.rot);
+
+    const id = e.food.id;
+    const hw = e.w / 2, hh = e.h / 2;
+
+    if (id === "sausage") {
+      ctx.fillStyle = "#C0392B";
+      ctx.beginPath();
+      ctx.roundRect(-hw + 2, -hh, e.w - 4, e.h, hh);
+      ctx.fill();
+      ctx.fillStyle = "#E74C3C";
+      ctx.beginPath();
+      ctx.roundRect(-hw + 4, -hh + 3, e.w - 8, e.h - 6, hh - 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillRect(-hw + 6, -hh + 4, 3, e.h - 8);
+      ctx.fillStyle = "#922B21";
+      ctx.beginPath();
+      ctx.arc(-hw + 5, -hh + 4, 2, 0, Math.PI * 2);
+      ctx.arc(-hw + 5, hh - 4, 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (id === "bread") {
+      ctx.fillStyle = "#F5DEB3";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#D2B48C";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#DEB887";
+      ctx.beginPath();
+      ctx.ellipse(0, -2, hw * 0.7, hh * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#C4A265";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, hw * 0.9, hh * 0.5, 0, Math.PI, 0);
+      ctx.fill();
+    } else if (id === "tomato") {
+      ctx.fillStyle = "#E74C3C";
+      ctx.beginPath();
+      ctx.arc(0, 0, hw, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#C0392B";
+      ctx.beginPath();
+      ctx.arc(0, 0, hw - 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#27AE60";
+      ctx.beginPath();
+      ctx.arc(0, -hh + 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-hw * 0.5, -hh * 0.3);
+      ctx.lineTo(hw * 0.3, hh * 0.5);
+      ctx.moveTo(-hw * 0.3, -hh * 0.5);
+      ctx.lineTo(hw * 0.5, hh * 0.3);
+      ctx.stroke();
+    } else if (id === "potato") {
+      ctx.fillStyle = "#F4D03F";
+      ctx.beginPath();
+      ctx.roundRect(-hw, -hh + 2, e.w, e.h - 4, 3);
+      ctx.fill();
+      ctx.fillStyle = "#E8C530";
+      for (let i = 0; i < 4; i++) {
+        const px = -hw + 3 + i * 6;
+        ctx.fillRect(px, -hh + 4, 3, e.h - 8);
+      }
+      ctx.fillStyle = "#D4AC0D";
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(-hw + 5 + i * 6, -hh + 5, 1, e.h - 10);
+      }
+    } else if (id === "ketchup") {
+      ctx.fillStyle = "#E74C3C";
+      ctx.beginPath();
+      ctx.roundRect(-hw, -hh, e.w, e.h, 3);
+      ctx.fill();
+      ctx.fillStyle = "#C0392B";
+      ctx.fillRect(-hw + 3, -hh + 3, e.w - 6, e.h - 6);
+      ctx.fillStyle = "white";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("K", 0, 0);
+      ctx.fillStyle = "#922B21";
+      ctx.beginPath();
+      ctx.moveTo(-2, -hh);
+      ctx.lineTo(2, -hh - 4);
+      ctx.lineTo(2, -hh);
+      ctx.fill();
+    }
+
+    if (e.fast) {
+      ctx.strokeStyle = `rgba(255,200,50,${0.2 + Math.sin(this.state.frame * 0.15) * 0.15})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(hw, hh) + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.restore();
+  }
+
   render() {
     const ctx = this.ctx;
     const w = this.CONSTANTS.canvasWidth;
@@ -515,26 +637,7 @@ class BlasterGame {
     }
 
     for (const e of this.state.enemies) {
-      const grad = ctx.createRadialGradient(e.x, e.y, 2, e.x, e.y, e.w / 2);
-      grad.addColorStop(0, "#E82020");
-      grad.addColorStop(0.5, "#C81010");
-      grad.addColorStop(1, "#8B0000");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      const r = e.w / 2;
-      ctx.arc(e.x + r, e.y + r, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,215,0,0.4)";
-      ctx.beginPath(); ctx.arc(e.x + r - 3, e.y + r - 3, r * 0.3, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
-      ctx.beginPath(); ctx.arc(e.x + r - 5, e.y + r - 5, r * 0.15, 0, Math.PI * 2); ctx.fill();
-      if (e.type === "fast") {
-        ctx.strokeStyle = "rgba(255,200,50,0.3)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(e.x + r, e.y + r, r + 3 + Math.sin(this.state.frame * 0.2) * 2, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      this.drawEnemy(e);
     }
 
     this.drawCharacter(this.state.player.x, this.state.player.y);
