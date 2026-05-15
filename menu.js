@@ -20,6 +20,13 @@ const GAMES = [
     description: "Atire nos inimigos do espaco",
     color: "#2d1b4e",
   },
+  {
+    id: "pacman",
+    name: "Pac Dogao",
+    emoji: "\uD83D\uDC7B",
+    description: "Pac-Man comendo ingredientes",
+    color: "#C81010",
+  },
 ];
 
 const socialScreen = document.getElementById("socialScreen");
@@ -78,6 +85,7 @@ function launchGame(id) {
     case "hotdog": gameInstances[id] = new HotDogGame(canvas); break;
     case "dino": gameInstances[id] = new DinoGame(canvas); break;
     case "blaster": gameInstances[id] = new BlasterGame(canvas); break;
+    case "pacman": gameInstances[id] = new PacmanGame(canvas); break;
   }
 }
 
