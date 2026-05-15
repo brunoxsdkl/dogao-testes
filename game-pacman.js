@@ -51,17 +51,17 @@ class PacmanGame {
     const RAW_MAZE = [
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-      [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
+      [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
-      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
-      [1,0,0,0,0,0,1,1,1,0,0,0,0,0,1],
+      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
       [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
-      [1,0,0,0,0,0,1,1,1,0,0,0,0,0,1],
-      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
-      [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-      [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
+      [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
       [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     ];
@@ -74,6 +74,14 @@ class PacmanGame {
           const ft = this.FOOD_TYPES[Math.floor(Math.random() * this.FOOD_TYPES.length)];
           this.foods.push({ r, c, type: ft, eaten: false });
         }
+      }
+    }
+    const powerPositions = [[1,7],[7,1],[7,13],[13,7]];
+    for (const [pr, pc] of powerPositions) {
+      if (this.maze[pr][pc] === 0) {
+        const idx = this.foods.findIndex(f => f.r === pr && f.c === pc);
+        if (idx >= 0) this.foods.splice(idx, 1);
+        this.foods.push({ r: pr, c: pc, type: { id: "power", color: "#F4D03F", points: 50 }, eaten: false, power: true });
       }
     }
 
@@ -93,6 +101,7 @@ class PacmanGame {
       lives: 3,
       immune: 0,
       combo: 1,
+      powerTime: 0,
     };
 
     this.CONSTANTS = {
@@ -318,6 +327,22 @@ class PacmanGame {
     });
   }
 
+  playPower() {
+    const actx = this.audio();
+    if (!actx) return;
+    const now = actx.currentTime;
+    this.tone("square", 440, now, 0.1, 0.1);
+    this.tone("square", 880, now + 0.05, 0.1, 0.08);
+  }
+
+  playEatGhost() {
+    const actx = this.audio();
+    if (!actx) return;
+    const now = actx.currentTime;
+    this.tone("square", 660, now, 0.08, 0.12);
+    this.tone("square", 990, now + 0.04, 0.08, 0.1);
+  }
+
   playMusic() {
     this.stopMusic();
     if (this.state.muted) return;
@@ -363,8 +388,10 @@ class PacmanGame {
     for (let i = 0; i < 3; i++) {
       this.state.ghosts.push({
         r: ghostSpawns[i].r, c: ghostSpawns[i].c,
+        spawnR: ghostSpawns[i].r, spawnC: ghostSpawns[i].c,
         dir: 0, color: this.GHOST_COLORS[i % this.GHOST_COLORS.length],
         speed: gs + i * 0.1, scatterTimer: 0,
+        frightened: false, eaten: false, eatenTimer: 0,
       });
     }
   }
@@ -378,6 +405,7 @@ class PacmanGame {
 
     for (const f of this.state.foods) f.eaten = false;
 
+    this.state.powerTime = 0;
     this.resetLevel();
     this.scoreEl.textContent = "0";
     this.startScreen.classList.add("hidden");
@@ -409,7 +437,7 @@ class PacmanGame {
   }
 
   dirVectors(d) {
-    const vecs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    const vecs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
     return vecs[d] || [0, 0];
   }
 
@@ -470,15 +498,50 @@ class PacmanGame {
         this.state.score += f.type.points * this.state.combo;
         this.state.combo = Math.min(4, this.state.combo + 1);
         this.scoreEl.textContent = this.state.score;
-        this.playChomp();
+        if (f.power) {
+          this.state.powerTime = 420;
+          for (const g of this.state.ghosts) {
+            if (!g.eaten) g.frightened = true;
+          }
+          this.playPower();
+        } else {
+          this.playChomp();
+        }
       }
     }
 
-    for (const g of this.state.ghosts) {
-      const gdr = Math.sign(this.state.player.r - g.r);
-      const gdc = Math.sign(this.state.player.c - g.c);
+    if (this.state.powerTime > 0) {
+      this.state.powerTime--;
+    }
 
-      const gs = g.speed * 0.04;
+    for (const g of this.state.ghosts) {
+      if (g.eaten) {
+        g.eatenTimer--;
+        if (g.eatenTimer <= 0) {
+          g.r = g.spawnR; g.c = g.spawnC;
+          g.eaten = false;
+          g.frightened = false;
+        }
+        continue;
+      }
+
+      g.frightened = this.state.powerTime > 0;
+
+      let gdr, gdc;
+      if (g.frightened) {
+        gdr = Math.sign(g.r - this.state.player.r);
+        gdc = Math.sign(g.c - this.state.player.c);
+        if (Math.random() < 0.15) {
+          const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+          const d = dirs[Math.floor(Math.random() * 4)];
+          gdr = d[0]; gdc = d[1];
+        }
+      } else {
+        gdr = Math.sign(this.state.player.r - g.r);
+        gdc = Math.sign(this.state.player.c - g.c);
+      }
+
+      const gs = g.speed * (g.frightened ? 0.025 : 0.04);
       const canR = this.isWalkable(Math.round(g.r + gdr), Math.round(g.c));
       const canC = this.isWalkable(Math.round(g.r), Math.round(g.c + gdc));
 
@@ -503,15 +566,25 @@ class PacmanGame {
     const pr2 = Math.round(p.r), pc2 = Math.round(p.c);
     if (this.state.immune <= 0) {
       for (const g of this.state.ghosts) {
+        if (g.eaten) continue;
         const gr = Math.round(g.r), gc = Math.round(g.c);
         if (pr2 === gr && pc2 === gc) {
-          this.state.lives--;
-          if (this.state.lives <= 0) {
-            this.gameOver();
+          if (g.frightened) {
+            g.eaten = true;
+            g.eatenTimer = 120;
+            this.state.score += 200 * this.state.combo;
+            this.state.combo = Math.min(8, this.state.combo + 2);
+            this.scoreEl.textContent = this.state.score;
+            this.playEatGhost();
+          } else {
+            this.state.lives--;
+            if (this.state.lives <= 0) {
+              this.gameOver();
+              return;
+            }
+            this.resetLevel();
             return;
           }
-          this.resetLevel();
-          return;
         }
       }
     }
@@ -544,6 +617,21 @@ class PacmanGame {
 
     ctx.save();
     ctx.translate(cx, cy);
+
+    if (f.power) {
+      const pulse = 1 + Math.sin(this.state.frame * 0.08) * 0.15;
+      ctx.fillStyle = "#F4D03F";
+      ctx.beginPath();
+      ctx.arc(0, 0, s * pulse * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,215,0,0.5)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, s * pulse * 0.85, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
 
     if (f.type.id === "sausage") {
       ctx.fillStyle = "#C0392B";
@@ -696,14 +784,21 @@ class PacmanGame {
     ctx.restore();
   }
 
-  drawGhost(cx, cy, color) {
+  drawGhost(cx, cy, color, frightened, eaten) {
     const ctx = this.ctx;
     const s = this.CONSTANTS.cellSize * 0.35;
+
+    if (eaten) return;
 
     ctx.save();
     ctx.translate(cx, cy + s * 0.1);
 
-    ctx.fillStyle = color;
+    let bodyColor = color;
+    if (frightened) {
+      const flash = this.state.powerTime > 0 && this.state.powerTime <= 120 && Math.floor(this.state.powerTime / 6) % 2 === 0;
+      bodyColor = flash ? "white" : "#4169E1";
+    }
+    ctx.fillStyle = bodyColor;
     ctx.beginPath();
     ctx.arc(0, -s * 0.15, s * 0.55, Math.PI, 0);
     ctx.lineTo(s * 0.55, s * 0.4);
@@ -713,6 +808,22 @@ class PacmanGame {
     ctx.lineTo(-s * 0.55, -s * 0.15);
     ctx.closePath();
     ctx.fill();
+
+    if (frightened) {
+      ctx.fillStyle = "#FF69B4";
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#222";
+      ctx.beginPath();
+      ctx.arc(-s * 0.05, -s * 0.02, s * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(s * 0.05, -s * 0.02, s * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
 
     ctx.fillStyle = "white";
     ctx.beginPath(); ctx.arc(-s * 0.2, -s * 0.15, s * 0.18, 0, Math.PI * 2); ctx.fill();
@@ -769,7 +880,7 @@ class PacmanGame {
     for (const g of this.state.ghosts) {
       const gx = ox + g.c * cs + cs / 2;
       const gy = oy + g.r * cs + cs / 2;
-      this.drawGhost(gx, gy, g.color);
+      this.drawGhost(gx, gy, g.color, g.frightened, g.eaten);
     }
 
     const px = ox + this.state.player.c * cs + cs / 2;
