@@ -14,11 +14,25 @@ const GAMES = [
     color: "#535353",
   },
   {
-    id: "memory",
-    name: "Dogao Memory",
-    emoji: "🧠",
-    description: "Teste sua memoria",
-    color: "#d97706",
+    id: "whack",
+    name: "Dogao Whack",
+    emoji: "🔨",
+    description: "Acerte as toupeiras",
+    color: "#16a34a",
+  },
+  {
+    id: "tap",
+    name: "Dogao Tap",
+    emoji: "🎯",
+    description: "Toque nos alvos rapidinho",
+    color: "#2563eb",
+  },
+  {
+    id: "simon",
+    name: "Dogao Simon",
+    emoji: "🔴🟡",
+    description: "Repita a sequencia de cores",
+    color: "#7c3aed",
   },
 ];
 
@@ -67,7 +81,9 @@ function launchGame(id) {
   switch (id) {
     case "hotdog": gameInstances[id] = new HotDogGame(canvas); break;
     case "dino": gameInstances[id] = new DinoGame(canvas); break;
-    case "memory": gameInstances[id] = new MemoryGame(canvas); break;
+    case "whack": gameInstances[id] = new WhackGame(canvas); break;
+    case "tap": gameInstances[id] = new TapGame(canvas); break;
+    case "simon": gameInstances[id] = new SimonGame(canvas); break;
   }
 }
 
