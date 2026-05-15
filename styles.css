@@ -148,6 +148,13 @@ canvas {
   animation: bob 1.8s ease-in-out infinite;
 }
 
+.hero-character img {
+  width: min(22vw, 96px);
+  height: min(22vw, 96px);
+  object-fit: contain;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.26));
+}
+
 .record,
 .hint,
 footer,
@@ -213,6 +220,13 @@ footer,
   line-height: 1;
 }
 
+.card .character-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.22));
+}
+
 .card span {
   font-size: 7px;
   line-height: 1.25;
@@ -231,7 +245,8 @@ footer,
   box-shadow: 0 0 24px rgba(250, 204, 21, 0.22);
 }
 
-.card.active .emoji {
+.card.active .emoji,
+.card.active .character-thumb {
   animation: smallBob 1.4s ease-in-out infinite;
 }
 

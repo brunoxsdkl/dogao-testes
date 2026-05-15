@@ -22,7 +22,13 @@ const bestScore = document.getElementById("bestScore");
 const CHARACTERS = [
   { id: "hotdog", label: "Hot Dog", emoji: "🌭", description: "O classico!" },
   { id: "burger", label: "X-Burguer", emoji: "🍔", description: "Poderoso!" },
-  { id: "dog", label: "Dogao", emoji: "🐕", description: "Mascote!" },
+  {
+    id: "dog",
+    label: "Dogao",
+    emoji: "🐕",
+    image: "assets/dog-character.png",
+    description: "Mascote!",
+  },
 ];
 
 const DIFFICULTIES = [
@@ -47,6 +53,9 @@ const state = {
   pipes: [],
 };
 
+const dogCharacterImage = new Image();
+dogCharacterImage.src = "assets/dog-character.png";
+
 const CONSTANTS = {
   gravity: 0.13,
   jump: -4,
@@ -70,8 +79,11 @@ function setupOptions() {
     button.className = "card";
     button.type = "button";
     button.dataset.id = character.id;
+    const visual = character.image
+      ? `<img class="character-thumb" src="${character.image}" alt="${character.label}" />`
+      : `<span class="emoji">${character.emoji}</span>`;
     button.innerHTML = `
-      <span class="emoji">${character.emoji}</span>
+      ${visual}
       <span>${character.label}</span>
       <small>${character.description}</small>
     `;
@@ -106,7 +118,9 @@ function updateMenu() {
   const character = CHARACTERS.find((item) => item.id === state.character) || CHARACTERS[0];
   titleCharacter.textContent = character.label;
   titleEmoji.textContent = character.emoji;
-  heroCharacter.textContent = character.emoji;
+  heroCharacter.innerHTML = character.image
+    ? `<img src="${character.image}" alt="${character.label}" />`
+    : character.emoji;
   recordLine.textContent = state.best > 0 ? `🏆 RECORDE: ${state.best}` : "RECORDE: 0";
 
   for (const button of characterOptions.children) {
@@ -492,10 +506,29 @@ function drawCharacter(x, y, rotation) {
     return;
   }
   if (state.character === "dog") {
-    drawDogCharacter(x, y, rotation);
+    drawDogImageCharacter(x, y, rotation);
     return;
   }
   drawHotDog(x, y, rotation);
+}
+
+function drawDogImageCharacter(x, y, rotation) {
+  if (!dogCharacterImage.complete || !dogCharacterImage.naturalWidth) {
+    drawDogCharacter(x, y, rotation);
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  const width = 68;
+  const height = 68;
+  ctx.fillStyle = "rgba(0,0,0,0.16)";
+  ctx.beginPath();
+  ctx.ellipse(0, height * 0.38, width * 0.32, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.drawImage(dogCharacterImage, -width / 2, -height / 2, width, height);
+  ctx.restore();
 }
 
 function drawHotDog(x, y, rotation) {
