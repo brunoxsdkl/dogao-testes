@@ -47,8 +47,6 @@ document.getElementById("socialSkip").addEventListener("click", closeSocial);
 document.getElementById("socialInsta").addEventListener("click", closeSocial);
 document.getElementById("socialFace").addEventListener("click", closeSocial);
 
-setTimeout(closeSocial, 2000);
-
 function renderMenu() {
   gameList.innerHTML = "";
   for (const game of GAMES) {
