@@ -14,46 +14,11 @@ const GAMES = [
     color: "#535353",
   },
   {
-    id: "tetris",
-    name: "Dogao Tetris",
-    emoji: "🧱",
-    description: "Empilhe blocos como um pro",
-    color: "#2563eb",
-  },
-  {
-    id: "invaders",
-    name: "Space Invaders",
-    emoji: "👾",
-    description: "Acerte os aliens espaciais",
-    color: "#7c3aed",
-  },
-  {
-    id: "snake",
-    name: "Dogao Snake",
-    emoji: "🐍",
-    description: "Cobrinha classica recarregada",
-    color: "#16a34a",
-  },
-  {
-    id: "breakout",
-    name: "Dogao Breakout",
-    emoji: "🏓",
-    description: "Quebre tijolos com a bolinha",
-    color: "#dc2626",
-  },
-  {
     id: "memory",
     name: "Dogao Memory",
     emoji: "🧠",
     description: "Teste sua memoria",
     color: "#d97706",
-  },
-  {
-    id: "pacman",
-    name: "Dogao Pac-Man",
-    emoji: "👻",
-    description: "Fuja dos fantasmas no labirinto",
-    color: "#facc15",
   },
 ];
 
@@ -74,8 +39,10 @@ function renderMenu() {
     card.style.setProperty("--card-color", game.color);
     card.innerHTML = `
       <span class="game-card-emoji">${game.emoji}</span>
-      <strong class="game-card-name">${game.name}</strong>
-      <small class="game-card-desc">${game.description}</small>
+      <div class="game-card-body">
+        <strong class="game-card-name">${game.name}</strong>
+        <small class="game-card-desc">${game.description}</small>
+      </div>
     `;
     card.addEventListener("click", () => launchGame(game.id));
     gameList.appendChild(card);
@@ -100,12 +67,7 @@ function launchGame(id) {
   switch (id) {
     case "hotdog": gameInstances[id] = new HotDogGame(canvas); break;
     case "dino": gameInstances[id] = new DinoGame(canvas); break;
-    case "tetris": gameInstances[id] = new TetrisGame(canvas); break;
-    case "invaders": gameInstances[id] = new InvadersGame(canvas); break;
-    case "snake": gameInstances[id] = new SnakeGame(canvas); break;
-    case "breakout": gameInstances[id] = new BreakoutGame(canvas); break;
     case "memory": gameInstances[id] = new MemoryGame(canvas); break;
-    case "pacman": gameInstances[id] = new PacmanGame(canvas); break;
   }
 }
 

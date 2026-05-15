@@ -2,19 +2,14 @@ class MemoryGame {
   constructor(canvas) {
     this.canvas = canvas; this.ctx = canvas.getContext("2d");
     this.animId = null; this.running = true; this._last = null;
-    this.CHARACTERS = [
-      { id: "hotdog", label: "Hot Dog", emoji: "🌭" },
-      { id: "burger", label: "X-Burguer", emoji: "🍔" },
-      { id: "dog", label: "Dogao", emoji: "🐕" },
-    ];
-    this.EMOJIS = ["🌭","🍔","🐕","🌭","🍔","🐕","⭐","🔥","💎","⭐","🔥","💎","🎮","🎯","🚀","🎮","🎯","🚀","👑","⚽","🏆","👑","⚽","🏆"];
+    this.EMOJIS = ["⭐","🔥","💎","⭐","🔥","💎","🎮","🎯","🚀","🎮","🎯","🚀","👑","⚽","🏆","👑","⚽","🏆","🌈","🍀","🦄","🌈","🍀","🦄"];
     this.COLS = 6; this.ROWS = 4; this.setupCanvas(); this.init();
   }
   setupCanvas() { this.canvas.width = 480; this.canvas.height = 400; this.canvas.style.cssText = "width:100%;height:100%;display:block;"; }
   init() {
     this.state = {
       mode: "start", score: 0, highScore: Number(localStorage.getItem("mem_high")||0),
-      character: "hotdog", difficulty: "medium", cards: [], flipped: [], matched: new Set(), attempts: 0, canFlip: true
+      cards: [], flipped: [], matched: new Set(), attempts: 0, canFlip: true
     };
     this.createUI(); this.bindEvents(); this.render(); this._last = performance.now(); this.loop();
   }
