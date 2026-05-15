@@ -220,11 +220,31 @@ function updateFollowStatus() {
 }
 
 function openCheckin() {
+  startScreen.classList.add("hidden");
+  gameoverScreen.classList.add("hidden");
   checkinScreen.classList.remove("hidden");
 }
 
 function closeCheckin() {
+  window.open("https://www.instagram.com/omegadogaocwb/", "_blank", "noopener,noreferrer");
+}
+
+function showStartMenu() {
+  state.mode = "start";
+  scoreEl.classList.remove("visible");
+  gameoverScreen.classList.add("hidden");
   checkinScreen.classList.add("hidden");
+  startScreen.classList.remove("hidden");
+  updateMenu();
+}
+
+function initializeAccessGate() {
+  if (state.instagramCheckin) {
+    showStartMenu();
+    return;
+  }
+
+  openCheckin();
 }
 
 function confirmInstagramCheckin() {
@@ -234,9 +254,7 @@ function confirmInstagramCheckin() {
     checkedAt: new Date().toISOString(),
   };
   writeJson(STORAGE_KEYS.instagramCheckin, state.instagramCheckin);
-  updateFollowStatus();
-  closeCheckin();
-  startGame();
+  showStartMenu();
 }
 
 function resize() {
@@ -289,7 +307,7 @@ function flap() {
   }
 
   if (state.mode === "start" || state.mode === "gameover") {
-    startGame();
+    requestStartGame();
   }
 }
 
@@ -964,4 +982,5 @@ followStatusButton.addEventListener("click", (event) => {
 
 setupOptions();
 resize();
+initializeAccessGate();
 requestAnimationFrame(loop);
