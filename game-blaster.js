@@ -72,11 +72,26 @@ class BlasterGame {
     }
 
     this.createUI();
+    this.showStartMenu();
     this.bindEvents();
     this.resetGame();
     this.render();
     this._last = performance.now();
     this.loop();
+  }
+
+  showStartMenu() {
+    this.state.mode = "start";
+    this.scoreEl.classList.remove("visible");
+    this.gameoverScreen.classList.add("hidden");
+    this.startScreen.classList.remove("hidden");
+    this.updateMenu();
+  }
+
+  updateMenu() {
+    this.recordLine.textContent = this.state.highScore > 0
+      ? `\uD83C\uDFC6 RECORDE: ${this.state.highScore}`
+      : "RECORDE: 0";
   }
 
   createUI() {
