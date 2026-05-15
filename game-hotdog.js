@@ -44,18 +44,6 @@ class HotDogGame {
       <div class="score hidden" id="hd-score">0</div>
       <button class="sound-button" id="hd-soundButton" type="button" aria-label="Silenciar som">🔊</button>
 
-      <section class="screen checkin-screen hidden" id="hd-checkinScreen">
-        <div class="checkin-card">
-          <img src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png" alt="O Mega Dogao" />
-          <span class="checkin-badge">CHECK-IN</span>
-          <h2>Siga O Mega Dogao</h2>
-          <p>Abra o Instagram da loja, siga o perfil e volte para liberar sua partida.</p>
-          <a class="instagram-button" href="https://www.instagram.com/omegadogaocwb/" target="_blank" rel="noopener noreferrer">Abrir Instagram</a>
-          <button class="confirm-follow-button" id="hd-confirmFollow" type="button">Ja segui, jogar</button>
-          <button class="skip-checkin-button" id="hd-closeCheckin" type="button">Voltar ao Instagram</button>
-        </div>
-      </section>
-
       <section class="screen start-screen hidden" id="hd-startScreen">
         <img class="brand-logo" src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png" alt="O Mega Dogao" />
         <div class="title-stack">
@@ -72,7 +60,6 @@ class HotDogGame {
         <div class="chooser"><p>ESCOLHA SEU PERSONAGEM</p><div class="card-row" id="hd-characterOptions"></div></div>
         <div class="chooser"><p>DIFICULDADE</p><div class="card-row" id="hd-difficultyOptions"></div></div>
         <button class="play-button" id="hd-playButton" type="button">▶ JOGAR</button>
-        <button class="follow-status" id="hd-followStatus" type="button">Check-in Instagram pendente</button>
         <p class="hint">TOQUE OU PRESSIONE ESPACO</p>
         <footer>PATROCINADO POR <strong>O MEGA DOGAO</strong> DESDE 2000</footer>
       </section>
@@ -99,12 +86,8 @@ class HotDogGame {
     this.soundButton = document.getElementById("hd-soundButton");
     this.startScreen = document.getElementById("hd-startScreen");
     this.gameoverScreen = document.getElementById("hd-gameoverScreen");
-    this.checkinScreen = document.getElementById("hd-checkinScreen");
     this.playButton = document.getElementById("hd-playButton");
     this.againButton = document.getElementById("hd-againButton");
-    this.confirmFollowButton = document.getElementById("hd-confirmFollow");
-    this.closeCheckinButton = document.getElementById("hd-closeCheckin");
-    this.followStatusButton = document.getElementById("hd-followStatus");
     this.characterOptions = document.getElementById("hd-characterOptions");
     this.difficultyOptions = document.getElementById("hd-difficultyOptions");
     this.titleCharacter = document.getElementById("hd-titleCharacter");
@@ -127,7 +110,6 @@ class HotDogGame {
       deviceId: "flappy_hotdog_device_id",
       lastRun: "flappy_hotdog_last_run",
       runs: "flappy_hotdog_runs",
-      instagramCheckin: "flappy_hotdog_instagram_checkin",
     };
 
     const CHARACTERS = [
@@ -152,7 +134,6 @@ class HotDogGame {
       best: Number(localStorage.getItem(STORAGE_KEYS.highScore) || 0),
       deviceId: this.getOrCreateDeviceId(STORAGE_KEYS),
       lastRun: this.readJson(STORAGE_KEYS.lastRun, null),
-      instagramCheckin: this.readJson(STORAGE_KEYS.instagramCheckin, null),
       muted: false,
       character: "hotdog",
       difficulty: "medium",
@@ -302,7 +283,6 @@ class HotDogGame {
       ? `${this.state.lastRun.score} pontos - ${this.formatDateTime(this.state.lastRun.playedAt)}`
       : "0 pontos";
     this.deviceLine.textContent = `ID ${this.state.deviceId.slice(-10).toUpperCase()}`;
-    this.updateFollowStatus();
 
     for (const button of this.characterOptions.children) {
       button.classList.toggle("active", button.dataset.id === this.state.character);
@@ -312,37 +292,16 @@ class HotDogGame {
     }
   }
 
-  updateFollowStatus() {
-    if (this.state.instagramCheckin) {
-      this.followStatusButton.textContent = `Check-in feito em ${this.formatDateTime(this.state.instagramCheckin.checkedAt)}`;
-      this.followStatusButton.classList.add("done");
-      return;
-    }
-    this.followStatusButton.textContent = "Check-in Instagram pendente";
-    this.followStatusButton.classList.remove("done");
-  }
-
-  openCheckin() {
-    this.startScreen.classList.add("hidden");
-    this.gameoverScreen.classList.add("hidden");
-    this.checkinScreen.classList.remove("hidden");
-  }
-
   showStartMenu() {
     this.state.mode = "start";
     this.scoreEl.classList.remove("visible");
     this.gameoverScreen.classList.add("hidden");
-    this.checkinScreen.classList.add("hidden");
     this.startScreen.classList.remove("hidden");
     this.updateMenu();
   }
 
   initializeAccessGate() {
-    if (this.state.instagramCheckin) {
-      this.showStartMenu();
-      return;
-    }
-    this.openCheckin();
+    this.showStartMenu();
   }
 
   resize() {
@@ -379,10 +338,6 @@ class HotDogGame {
   }
 
   requestStartGame() {
-    if (!this.state.instagramCheckin) {
-      this.openCheckin();
-      return;
-    }
     this.startGame();
   }
 
@@ -871,23 +826,6 @@ class HotDogGame {
     this.playButton.addEventListener("click", this._playFn);
     this.againButton.addEventListener("click", this._againFn);
     this.soundButton.addEventListener("click", this._soundFn);
-    this.confirmFollowButton.addEventListener("click", this._confirmFn);
-    this.closeCheckinButton.addEventListener("click", this._closeCheckinFn);
-    this.followStatusButton.addEventListener("click", this._followFn);
-  }
-
-  confirmInstagramCheckin() {
-    this.state.instagramCheckin = {
-      profile: "https://www.instagram.com/omegadogaocwb/",
-      deviceId: this.state.deviceId,
-      checkedAt: new Date().toISOString(),
-    };
-    this.writeJson(this.STORAGE_KEYS.instagramCheckin, this.state.instagramCheckin);
-    this.showStartMenu();
-  }
-
-  closeCheckin() {
-    window.open("https://www.instagram.com/omegadogaocwb/", "_blank", "noopener,noreferrer");
   }
 
   loop() {
@@ -914,9 +852,6 @@ class HotDogGame {
     this.playButton.removeEventListener("click", this._playFn);
     this.againButton.removeEventListener("click", this._againFn);
     this.soundButton.removeEventListener("click", this._soundFn);
-    this.confirmFollowButton.removeEventListener("click", this._confirmFn);
-    this.closeCheckinButton.removeEventListener("click", this._closeCheckinFn);
-    this.followStatusButton.removeEventListener("click", this._followFn);
     const ui = document.getElementById("hotdog-ui");
     if (ui) ui.remove();
   }

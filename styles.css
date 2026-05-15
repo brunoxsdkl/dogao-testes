@@ -158,7 +158,6 @@ button {
 .game-container {
   position: absolute;
   inset: 0;
-  background: #000;
 }
 
 .game-container canvas {
