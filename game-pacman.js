@@ -580,15 +580,14 @@ class PacmanGame {
       if (this.isWalkable(snapR, snapC) && Math.abs(p.r - snapR) < 0.15 && Math.abs(p.c - snapC) < 0.15) {
         p.r = snapR;
         p.c = snapC;
-      } else {
-        p.r += dirV[0] * speed * 0.04;
-        p.c += dirV[1] * speed * 0.04;
       }
       p.moving = false;
     }
 
     if (p.c < 0) p.c += this.COLS;
     if (p.c >= this.COLS) p.c -= this.COLS;
+    if (p.r < 0) p.r = 0;
+    if (p.r >= this.ROWS) p.r = this.ROWS - 1;
 
     p.mouthOpen = (Math.sin(this.state.frame * 0.15) + 1) * 0.4;
 
@@ -663,6 +662,8 @@ class PacmanGame {
 
       if (g.c < 0) g.c += this.COLS;
       if (g.c >= this.COLS) g.c -= this.COLS;
+      if (g.r < 0) g.r = 0;
+      if (g.r >= this.ROWS) g.r = this.ROWS - 1;
     }
 
     // ── Ghost–player collision ──
