@@ -31,8 +31,15 @@ const GAMES = [
     id: "formula",
     name: "Formula Dogao",
     emoji: "\uD83C\uDFCE\uFE0F",
-    description: "Corrida de F1!",
+    description: "Corrida de F1 (top-down)",
     color: "#E74C3C",
+  },
+  {
+    id: "formula3d",
+    name: "Formula Dogao 3D",
+    emoji: "\uD83C\uDFCE\uFE0F",
+    description: "Corrida de F1 em 3a pessoa!",
+    color: "#C0392B",
   },
 ];
 
@@ -94,6 +101,7 @@ function launchGame(id) {
     case "blaster": gameInstances[id] = new BlasterGame(canvas); break;
     case "pacman": gameInstances[id] = new PacmanGame(canvas); break;
     case "formula": gameInstances[id] = new FormulaGame(canvas); break;
+    case "formula3d": gameInstances[id] = new Formula3DGame(canvas); break;
   }
 }
 
