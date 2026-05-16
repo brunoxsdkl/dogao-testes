@@ -27,6 +27,13 @@ const GAMES = [
     description: "Pac-Man comendo ingredientes",
     color: "#C81010",
   },
+  {
+    id: "formula",
+    name: "Formula Dogao",
+    emoji: "\uD83C\uDFCE\uFE0F",
+    description: "Corrida de F1!",
+    color: "#E74C3C",
+  },
 ];
 
 const socialScreen = document.getElementById("socialScreen");
@@ -86,6 +93,7 @@ function launchGame(id) {
     case "dino": gameInstances[id] = new DinoGame(canvas); break;
     case "blaster": gameInstances[id] = new BlasterGame(canvas); break;
     case "pacman": gameInstances[id] = new PacmanGame(canvas); break;
+    case "formula": gameInstances[id] = new FormulaGame(canvas); break;
   }
 }
 
