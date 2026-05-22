@@ -153,6 +153,8 @@ class HotDogGame {
       characterWidth: 52,
       characterHeight: 30,
       groundHeight: 70,
+      gapMin: 110,
+      speedMax: 3.2,
     };
 
     let audioContext = null;
@@ -232,6 +234,7 @@ class HotDogGame {
     this.canvas.height = 760;
     this.canvas.style.width = "100%";
     this.canvas.style.height = "100%";
+    this._bgCanvas = null;
   }
 
   setupOptions() {
@@ -312,6 +315,8 @@ class HotDogGame {
     this.canvas.height = Math.floor(this.state.height * this.state.dpr);
     this.ctx.setTransform(this.state.dpr, 0, 0, this.state.dpr, 0, 0);
     this.state.hotdog.x = this.state.width * 0.22;
+    this._bgCanvas = null;
+    this._gndCanvas = null;
   }
 
   groundTop() {
@@ -382,19 +387,21 @@ class HotDogGame {
     return { emoji: "💥", text: "O CACHORRO PEGOU!" };
   }
 
-  spawnPipe() {
+  spawnPipe(dynamicGap) {
+    const gap = dynamicGap || this.CONSTANTS.gap;
     const topLimit = 80;
-    const bottomLimit = this.groundTop() - this.CONSTANTS.gap - 60;
-    const gapY = topLimit + Math.random() * Math.max(80, bottomLimit - topLimit);
-    const dogSide = this.state.pipes.length % 4 === 2 ? (Math.random() > 0.5 ? "top" : "bottom") : null;
+    const bottomLimit = this.groundTop() - gap - 60;
+    const gapY = topLimit + Math.random() * Math.max(60, bottomLimit - topLimit);
+    const dogSide = null;
 
     let velocity = 0;
     let moving = false;
-    if (this.state.difficulty === "medium") {
+    const prog = this.getProg(this.state.score);
+    if (this.state.difficulty === "medium" || prog.speed > 1.8) {
       moving = Math.random() < 0.42;
       velocity = moving ? (Math.random() > 0.5 ? 0.42 : -0.42) : 0;
     }
-    if (this.state.difficulty === "hard") {
+    if (this.state.difficulty === "hard" || prog.speed > 2.4) {
       moving = true;
       velocity = Math.random() > 0.5 ? 1.1 : -1.1;
     }
@@ -411,22 +418,32 @@ class HotDogGame {
     });
   }
 
+  getProg(s) {
+    const p = Math.min(1, s / 40);
+    return {
+      speed: 1.2 + p * 2.0,
+      gap: Math.max(this.CONSTANTS.gapMin, 200 - p * 90),
+      interval: Math.max(80, 190 - p * 110),
+      pipeSpeed: p * 1.8,
+    };
+  }
+
   updateGame() {
     if (this.state.mode !== "playing") return;
 
     this.state.frame += 1;
-    this.state.groundOffset += this.CONSTANTS.speed;
+    const prog = this.getProg(this.state.score);
+    this.state.groundOffset += prog.speed;
     this.state.hotdog.velocity += this.CONSTANTS.gravity;
     this.state.hotdog.y += this.state.hotdog.velocity;
 
     const targetRotation = Math.min(1.3, Math.max(-0.45, this.state.hotdog.velocity * 0.055));
     this.state.hotdog.rotation += (targetRotation - this.state.hotdog.rotation) * 0.18;
 
-    const interval = Math.max(130, 190 - Math.floor(this.state.score / 5) * 4);
-    if (this.state.frame % interval === 0) this.spawnPipe();
+    if (this.state.frame % Math.floor(prog.interval) === 0) this.spawnPipe(prog.gap);
 
     for (const pipe of this.state.pipes) {
-      pipe.x -= this.CONSTANTS.speed;
+      pipe.x -= prog.speed;
 
       if (pipe.moving) {
         pipe.gapY += pipe.velocity;
@@ -481,75 +498,84 @@ class HotDogGame {
 
   drawBackground() {
     const ctx = this.ctx;
-    const gradient = ctx.createLinearGradient(0, 0, 0, this.state.height);
-    gradient.addColorStop(0, "#87CEEB");
-    gradient.addColorStop(0.7, "#FFF0D0");
-    gradient.addColorStop(1, "#FFD580");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, this.state.width, this.state.height);
+    const W = this.state.width, H = this.state.height;
+    const gt = this.groundTop();
 
-    ctx.fillStyle = "rgba(200, 80, 60, 0.18)";
-    const buildings = [
-      { x: 0, w: 60, h: 120 }, { x: 70, w: 50, h: 90 }, { x: 130, w: 70, h: 150 },
-      { x: 210, w: 45, h: 80 }, { x: 265, w: 80, h: 130 }, { x: 355, w: 55, h: 100 },
-      { x: 420, w: 65, h: 160 }, { x: 495, w: 40, h: 85 }, { x: 545, w: 70, h: 115 },
-    ];
-    const buildingOffset = (this.state.groundOffset * 0.35) % 620;
-    for (const b of buildings) {
-      const x = ((b.x - buildingOffset) % 620 + 620) % 620 - 10;
-      ctx.fillRect(x, this.groundTop() - b.h, b.w, b.h);
-      ctx.fillRect(x + 620, this.groundTop() - b.h, b.w, b.h);
+    if (!this._bgCanvas || this._bgCanvas.width !== W || this._bgCanvas.height !== H) {
+      this._bgCanvas = document.createElement("canvas");
+      this._bgCanvas.width = W;
+      this._bgCanvas.height = H;
+      const bc = this._bgCanvas.getContext("2d");
+      const grad = bc.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, "#87CEEB");
+      grad.addColorStop(0.7, "#FFF0D0");
+      grad.addColorStop(1, "#FFD580");
+      bc.fillStyle = grad;
+      bc.fillRect(0, 0, W, H);
+
+      bc.fillStyle = "rgba(200, 80, 60, 0.18)";
+      const buildings = [
+        { x: 0, w: 60, h: 120 }, { x: 70, w: 50, h: 90 }, { x: 130, w: 70, h: 150 },
+        { x: 210, w: 45, h: 80 }, { x: 265, w: 80, h: 130 }, { x: 355, w: 55, h: 100 },
+        { x: 420, w: 65, h: 160 }, { x: 495, w: 40, h: 85 }, { x: 545, w: 70, h: 115 },
+      ];
+      for (const b of buildings) {
+        bc.fillRect(b.x, gt - b.h, b.w, b.h);
+        bc.fillRect(b.x + 620, gt - b.h, b.w, b.h);
+      }
+
+      bc.fillStyle = "rgba(255,255,255,0.75)";
+      const clouds = [
+        { x: 80, y: 60, r: 22 }, { x: 200, y: 40, r: 16 }, { x: 380, y: 70, r: 25 },
+        { x: 560, y: 35, r: 18 }, { x: 700, y: 55, r: 20 }, { x: 900, y: 45, r: 22 },
+      ];
+      for (const cloud of clouds) {
+        bc.beginPath();
+        bc.arc(cloud.x, cloud.y, cloud.r, 0, Math.PI * 2);
+        bc.arc(cloud.x + cloud.r, cloud.y - cloud.r * 0.5, cloud.r * 0.8, 0, Math.PI * 2);
+        bc.arc(cloud.x + cloud.r * 1.8, cloud.y, cloud.r * 0.9, 0, Math.PI * 2);
+        bc.fill();
+      }
     }
 
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    const clouds = [
-      { x: 80, y: 60, r: 22 }, { x: 200, y: 40, r: 16 }, { x: 380, y: 70, r: 25 },
-      { x: 560, y: 35, r: 18 }, { x: 700, y: 55, r: 20 }, { x: 900, y: 45, r: 22 },
-    ];
-    for (const cloud of clouds) {
-      const x = ((cloud.x - this.state.groundOffset * 0.45) % (this.state.width + 200) + this.state.width + 200) % (this.state.width + 200) - 100;
-      ctx.beginPath();
-      ctx.arc(x, cloud.y, cloud.r, 0, Math.PI * 2);
-      ctx.arc(x + cloud.r, cloud.y - cloud.r * 0.5, cloud.r * 0.8, 0, Math.PI * 2);
-      ctx.arc(x + cloud.r * 1.8, cloud.y, cloud.r * 0.9, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    const bo = (this.state.groundOffset * 0.35) % 620;
+    ctx.save();
+    ctx.translate(-bo, 0);
+    ctx.drawImage(this._bgCanvas, -620, 0);
+    ctx.drawImage(this._bgCanvas, 0, 0);
+    ctx.drawImage(this._bgCanvas, 620, 0);
+    ctx.restore();
   }
 
   drawPipe(pipe) {
     const ctx = this.ctx;
-    const width = this.CONSTANTS.pipeWidth;
-    const gapBottom = pipe.gapY + this.CONSTANTS.gap;
+    const w = this.CONSTANTS.pipeWidth;
+    const gapBot = pipe.gapY + this.CONSTANTS.gap;
 
+    ctx.fillStyle = "#CC1111";
     if (pipe.gapY > 0) {
-      const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + width, 0);
-      gradient.addColorStop(0, "#CC1111"); gradient.addColorStop(0.2, "#E82020");
-      gradient.addColorStop(0.8, "#E82020"); gradient.addColorStop(1, "#AA0E0E");
-      ctx.fillStyle = gradient;
-      this.drawRoundedRect(pipe.x, 0, width, pipe.gapY, 0);
-      ctx.fill();
-      ctx.strokeStyle = "#8B0000"; ctx.lineWidth = 2; ctx.stroke();
-      this.drawPipeCap(pipe.x - 6, pipe.gapY - 22, width + 12, 22);
-      ctx.fillStyle = "rgba(255, 215, 0, 0.18)";
-      for (let s = 1; s < 4; s++) ctx.fillRect(pipe.x + s * 15, 0, 5, Math.max(0, pipe.gapY - 22));
+      ctx.fillRect(pipe.x, 0, w, pipe.gapY);
+      ctx.fillStyle = "#8B0000";
+      ctx.fillRect(pipe.x, 0, w, 2);
+      ctx.fillRect(pipe.x, pipe.gapY - 24, w, 2);
+      ctx.fillStyle = "#FFD700";
+      ctx.fillRect(pipe.x - 6, pipe.gapY - 24, w + 12, 24);
+      ctx.strokeStyle = "#CCA800"; ctx.lineWidth = 1.5;
+      ctx.strokeRect(pipe.x - 6, pipe.gapY - 24, w + 12, 24);
     }
 
-    const lowerHeight = this.groundTop() - gapBottom;
-    if (lowerHeight > 0) {
-      const gradient = ctx.createLinearGradient(pipe.x, gapBottom, pipe.x + width, gapBottom);
-      gradient.addColorStop(0, "#CC1111"); gradient.addColorStop(0.2, "#E82020");
-      gradient.addColorStop(0.8, "#E82020"); gradient.addColorStop(1, "#AA0E0E");
-      ctx.fillStyle = gradient;
-      this.drawRoundedRect(pipe.x, gapBottom, width, lowerHeight, 0);
-      ctx.fill();
-      ctx.strokeStyle = "#8B0000"; ctx.lineWidth = 2; ctx.stroke();
-      this.drawPipeCap(pipe.x - 6, gapBottom, width + 12, 22);
-      ctx.fillStyle = "rgba(255, 215, 0, 0.18)";
-      for (let s = 1; s < 4; s++) ctx.fillRect(pipe.x + s * 15, gapBottom + 22, 5, Math.max(0, lowerHeight - 22));
+    const lh = this.groundTop() - gapBot;
+    if (lh > 0) {
+      ctx.fillStyle = "#CC1111";
+      ctx.fillRect(pipe.x, gapBot, w, lh);
+      ctx.fillStyle = "#8B0000";
+      ctx.fillRect(pipe.x, gapBot, w, 2);
+      ctx.fillRect(pipe.x, gapBot + lh - 2, w, 2);
+      ctx.fillStyle = "#FFD700";
+      ctx.fillRect(pipe.x - 6, gapBot, w + 12, 24);
+      ctx.strokeStyle = "#CCA800"; ctx.lineWidth = 1.5;
+      ctx.strokeRect(pipe.x - 6, gapBot, w + 12, 24);
     }
-
-    if (pipe.dogSide === "top" && pipe.gapY > 30) this.drawTinyDog(pipe.x + width / 2, pipe.gapY - 12, 38, false);
-    if (pipe.dogSide === "bottom" && lowerHeight > 30) this.drawTinyDog(pipe.x + width / 2, gapBottom + 12, 38, true);
   }
 
   drawPipeCap(x, y, width, height) {
@@ -586,25 +612,26 @@ class HotDogGame {
   drawGround() {
     const ctx = this.ctx;
     const top = this.groundTop();
-    const groundGradient = ctx.createLinearGradient(0, top, 0, this.state.height);
-    groundGradient.addColorStop(0, "#CC1111"); groundGradient.addColorStop(0.15, "#B80E0E"); groundGradient.addColorStop(1, "#8B0000");
-    ctx.fillStyle = groundGradient;
-    ctx.fillRect(0, top, this.state.width, this.CONSTANTS.groundHeight);
+    const gh = this.CONSTANTS.groundHeight;
 
-    ctx.fillStyle = "#FFD700";
-    ctx.fillRect(0, top, this.state.width, 5);
-
-    ctx.setLineDash([30, 20]);
-    ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, top + 18); ctx.lineTo(this.state.width, top + 18); ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = "rgba(255,220,0,0.08)";
-    const tile = 50;
-    const offset = this.state.groundOffset % (tile * 2);
-    for (let x = -tile + offset; x < this.state.width + tile; x += tile) {
-      ctx.fillRect(x, top + 5, tile / 2, this.CONSTANTS.groundHeight);
+    if (!this._gndCanvas || this._gndCanvas.width !== this.state.width) {
+      this._gndCanvas = document.createElement("canvas");
+      this._gndCanvas.width = this.state.width;
+      this._gndCanvas.height = gh + 5;
+      const gc = this._gndCanvas.getContext("2d");
+      const gg = gc.createLinearGradient(0, 0, 0, gh + 5);
+      gg.addColorStop(0, "#CC1111"); gg.addColorStop(0.15, "#B80E0E"); gg.addColorStop(1, "#8B0000");
+      gc.fillStyle = gg;
+      gc.fillRect(0, 0, this.state.width, gh + 5);
+      gc.fillStyle = "#FFD700";
+      gc.fillRect(0, 0, this.state.width, 5);
+      gc.fillStyle = "rgba(255,220,0,0.08)";
+      for (let x = 0; x < this.state.width + 50; x += 100) {
+        gc.fillRect(x, 5, 50, gh);
+      }
     }
+
+    ctx.drawImage(this._gndCanvas, 0, top);
   }
 
   drawCharacter(x, y, rotation) {
@@ -711,7 +738,10 @@ class HotDogGame {
 
   render() {
     this.drawBackground();
-    for (const pipe of this.state.pipes) this.drawPipe(pipe);
+    const w = this.state.width + this.CONSTANTS.pipeWidth + 20;
+    for (const pipe of this.state.pipes) {
+      if (pipe.x > -this.CONSTANTS.pipeWidth - 20 && pipe.x < w) this.drawPipe(pipe);
+    }
     this.drawGround();
 
     if (this.state.mode === "playing" || this.state.mode === "gameover") {
