@@ -726,16 +726,16 @@ class HotDogGame {
       const ctx = this.ctx;
       ctx.save();
       ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.textBaseline = "top";
 
       const size = Math.min(this.state.width, this.state.height);
-      const fontSize = Math.max(40, size * 0.13);
+      const fontSize = Math.max(48, size * 0.16);
 
-      ctx.shadowColor = "rgba(0,0,0,0.6)";
-      ctx.shadowBlur = 12;
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 18;
       ctx.font = `bold ${fontSize}px "Fredoka One", system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.fillText(this.state.score, this.state.width / 2, this.state.height / 2 - 20);
+      ctx.fillStyle = "#facc15";
+      ctx.fillText(this.state.score, this.state.width / 2, 20);
 
       ctx.shadowBlur = 0;
       ctx.restore();
