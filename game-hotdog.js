@@ -328,8 +328,7 @@ class HotDogGame {
     this.state.hotdog.velocity = 0;
     this.state.hotdog.rotation = 0;
     this.state.pipes = [];
-    this.scoreEl.textContent = "0";
-    this.scoreEl.classList.add("visible");
+    this.scoreEl.classList.remove("visible");
     this.startScreen.classList.add("hidden");
     this.gameoverScreen.classList.add("hidden");
     this.checkinScreen.classList.add("hidden");
@@ -721,6 +720,25 @@ class HotDogGame {
       const floatY = this.state.height * 0.42 + Math.sin(Date.now() * 0.0025) * 14;
       const floatRotation = Math.sin(Date.now() * 0.002) * 0.08;
       this.drawCharacter(this.state.width * 0.22, floatY, floatRotation);
+    }
+
+    if (this.state.mode === "playing") {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const size = Math.min(this.state.width, this.state.height);
+      const fontSize = Math.max(40, size * 0.13);
+
+      ctx.shadowColor = "rgba(0,0,0,0.6)";
+      ctx.shadowBlur = 12;
+      ctx.font = `bold ${fontSize}px "Fredoka One", system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillText(this.state.score, this.state.width / 2, this.state.height / 2 - 20);
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
     }
   }
 
