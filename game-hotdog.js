@@ -146,12 +146,12 @@ class HotDogGame {
 
     const CONSTANTS = {
       gravity: 0.13,
-      jump: -4,
+      jump: -4.2,
       pipeWidth: 65,
       gap: 200,
       speed: 1.2,
-      characterWidth: 52,
-      characterHeight: 30,
+      characterWidth: 58,
+      characterHeight: 36,
       groundHeight: 70,
       gapMin: 110,
       speedMax: 3.2,
@@ -232,8 +232,6 @@ class HotDogGame {
   setupCanvas() {
     this.canvas.width = 390;
     this.canvas.height = 760;
-    this.canvas.style.width = "100%";
-    this.canvas.style.height = "100%";
     this._bgCanvas = null;
   }
 
@@ -307,14 +305,21 @@ class HotDogGame {
   }
 
   resize() {
-    const rect = this.canvas.getBoundingClientRect();
+    const rect = this.canvas.parentElement.getBoundingClientRect();
     this.state.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.state.width = Math.max(320, Math.floor(rect.width));
-    this.state.height = Math.max(520, Math.floor(rect.height));
-    this.canvas.width = Math.floor(this.state.width * this.state.dpr);
-    this.canvas.height = Math.floor(this.state.height * this.state.dpr);
+    const aw = Math.max(320, Math.floor(rect.width));
+    const ah = Math.max(520, Math.floor(rect.height));
+    this._scale = Math.min(aw / 390, ah / 760);
+    this.state.width = 390;
+    this.state.height = 760;
+    const cw = Math.round(390 * this._scale);
+    const ch = Math.round(760 * this._scale);
+    this.canvas.style.width = cw + "px";
+    this.canvas.style.height = ch + "px";
+    this.canvas.style.margin = "auto";
+    this.canvas.width = Math.floor(cw * this.state.dpr);
+    this.canvas.height = Math.floor(ch * this.state.dpr);
     this.ctx.setTransform(this.state.dpr, 0, 0, this.state.dpr, 0, 0);
-    this.state.hotdog.x = this.state.width * 0.22;
     this._bgCanvas = null;
     this._gndCanvas = null;
   }
@@ -392,7 +397,6 @@ class HotDogGame {
     const topLimit = 80;
     const bottomLimit = this.groundTop() - gap - 60;
     const gapY = topLimit + Math.random() * Math.max(60, bottomLimit - topLimit);
-    const dogSide = null;
 
     let velocity = 0;
     let moving = false;
@@ -409,7 +413,7 @@ class HotDogGame {
     this.state.pipes.push({
       x: this.state.width + 10,
       gapY,
-      dogSide,
+      gapSize: gap,
       scored: false,
       moving,
       velocity,
@@ -478,7 +482,7 @@ class HotDogGame {
     const inX = x + halfWidth > pipe.x + 4 && x - halfWidth < pipe.x + this.CONSTANTS.pipeWidth - 4;
     if (!inX) return false;
 
-    return y - halfHeight < pipe.gapY + 4 || y + halfHeight > pipe.gapY + this.CONSTANTS.gap - 4;
+    return y - halfHeight < pipe.gapY + 4 || y + halfHeight > pipe.gapY + pipe.gapSize - 4;
   }
 
   drawRoundedRect(x, y, width, height, radius) {
@@ -540,7 +544,7 @@ class HotDogGame {
   drawPipe(pipe) {
     const ctx = this.ctx;
     const w = this.CONSTANTS.pipeWidth;
-    const gapBot = pipe.gapY + this.CONSTANTS.gap;
+    const gapBot = pipe.gapY + pipe.gapSize;
 
     ctx.fillStyle = "#CC1111";
     if (pipe.gapY > 0) {
