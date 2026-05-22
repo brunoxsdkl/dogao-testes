@@ -27,20 +27,7 @@ const GAMES = [
     description: "Pac-Man comendo ingredientes",
     color: "#C81010",
   },
-  {
-    id: "formula",
-    name: "Formula Dogao",
-    emoji: "\uD83C\uDFCE\uFE0F",
-    description: "Corrida de F1 (top-down)",
-    color: "#E74C3C",
-  },
-  {
-    id: "formula3d",
-    name: "Formula Dogao 3D",
-    emoji: "\uD83C\uDFCE\uFE0F",
-    description: "Corrida de F1 em 3a pessoa!",
-    color: "#C0392B",
-  },
+
 ];
 
 const socialScreen = document.getElementById("socialScreen");
