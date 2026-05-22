@@ -498,53 +498,43 @@ class HotDogGame {
 
   drawBackground() {
     const ctx = this.ctx;
-    const W = this.state.width, H = this.state.height;
+    const W = this.state.width;
+    const H = this.state.height;
     const gt = this.groundTop();
 
-    if (!this._bgCanvas || this._bgCanvas.width !== W || this._bgCanvas.height !== H) {
-      this._bgCanvas = document.createElement("canvas");
-      this._bgCanvas.width = W;
-      this._bgCanvas.height = H;
-      const bc = this._bgCanvas.getContext("2d");
-      const grad = bc.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, "#87CEEB");
-      grad.addColorStop(0.7, "#FFF0D0");
-      grad.addColorStop(1, "#FFD580");
-      bc.fillStyle = grad;
-      bc.fillRect(0, 0, W, H);
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, "#87CEEB");
+    grad.addColorStop(0.7, "#FFF0D0");
+    grad.addColorStop(1, "#FFD580");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
 
-      bc.fillStyle = "rgba(200, 80, 60, 0.18)";
-      const buildings = [
-        { x: 0, w: 60, h: 120 }, { x: 70, w: 50, h: 90 }, { x: 130, w: 70, h: 150 },
-        { x: 210, w: 45, h: 80 }, { x: 265, w: 80, h: 130 }, { x: 355, w: 55, h: 100 },
-        { x: 420, w: 65, h: 160 }, { x: 495, w: 40, h: 85 }, { x: 545, w: 70, h: 115 },
-      ];
-      for (const b of buildings) {
-        bc.fillRect(b.x, gt - b.h, b.w, b.h);
-        bc.fillRect(b.x + 620, gt - b.h, b.w, b.h);
-      }
-
-      bc.fillStyle = "rgba(255,255,255,0.75)";
-      const clouds = [
-        { x: 80, y: 60, r: 22 }, { x: 200, y: 40, r: 16 }, { x: 380, y: 70, r: 25 },
-        { x: 560, y: 35, r: 18 }, { x: 700, y: 55, r: 20 }, { x: 900, y: 45, r: 22 },
-      ];
-      for (const cloud of clouds) {
-        bc.beginPath();
-        bc.arc(cloud.x, cloud.y, cloud.r, 0, Math.PI * 2);
-        bc.arc(cloud.x + cloud.r, cloud.y - cloud.r * 0.5, cloud.r * 0.8, 0, Math.PI * 2);
-        bc.arc(cloud.x + cloud.r * 1.8, cloud.y, cloud.r * 0.9, 0, Math.PI * 2);
-        bc.fill();
-      }
+    ctx.fillStyle = "rgba(200, 80, 60, 0.18)";
+    const buildings = [
+      { x: 0, w: 60, h: 120 }, { x: 70, w: 50, h: 90 }, { x: 130, w: 70, h: 150 },
+      { x: 210, w: 45, h: 80 }, { x: 265, w: 80, h: 130 }, { x: 355, w: 55, h: 100 },
+      { x: 420, w: 65, h: 160 }, { x: 495, w: 40, h: 85 }, { x: 545, w: 70, h: 115 },
+    ];
+    const buildingOffset = (this.state.groundOffset * 0.35) % 620;
+    for (const b of buildings) {
+      const x = ((b.x - buildingOffset) % 620 + 620) % 620 - 10;
+      ctx.fillRect(x, gt - b.h, b.w, b.h);
+      ctx.fillRect(x + 620, gt - b.h, b.w, b.h);
     }
 
-    const bo = (this.state.groundOffset * 0.35) % 620;
-    ctx.save();
-    ctx.translate(-bo, 0);
-    ctx.drawImage(this._bgCanvas, -620, 0);
-    ctx.drawImage(this._bgCanvas, 0, 0);
-    ctx.drawImage(this._bgCanvas, 620, 0);
-    ctx.restore();
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    const clouds = [
+      { x: 80, y: 60, r: 22 }, { x: 200, y: 40, r: 16 }, { x: 380, y: 70, r: 25 },
+      { x: 560, y: 35, r: 18 }, { x: 700, y: 55, r: 20 }, { x: 900, y: 45, r: 22 },
+    ];
+    for (const cloud of clouds) {
+      const x = ((cloud.x - this.state.groundOffset * 0.45) % (W + 200) + W + 200) % (W + 200) - 100;
+      ctx.beginPath();
+      ctx.arc(x, cloud.y, cloud.r, 0, Math.PI * 2);
+      ctx.arc(x + cloud.r, cloud.y - cloud.r * 0.5, cloud.r * 0.8, 0, Math.PI * 2);
+      ctx.arc(x + cloud.r * 1.8, cloud.y, cloud.r * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   drawPipe(pipe) {
