@@ -317,6 +317,7 @@ class HotDogGame {
     this.canvas.style.width = cw + "px";
     this.canvas.style.height = ch + "px";
     this.canvas.style.margin = "auto";
+    this.canvas.style.background = "#1a1a2e";
     this.canvas.width = Math.floor(cw * this.state.dpr);
     this.canvas.height = Math.floor(ch * this.state.dpr);
     this.ctx.setTransform(this.state.dpr, 0, 0, this.state.dpr, 0, 0);
