@@ -179,6 +179,7 @@ button {
   position: absolute;
   inset: 0;
   touch-action: none;
+  background: #1a1a2e;
 }
 
 canvas#gameCanvas {

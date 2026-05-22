@@ -316,8 +316,12 @@ class HotDogGame {
     const ch = Math.round(760 * this._scale);
     this.canvas.style.width = cw + "px";
     this.canvas.style.height = ch + "px";
-    this.canvas.style.margin = "auto";
-    this.canvas.style.background = "#1a1a2e";
+    this.canvas.style.margin = "0";
+    this.canvas.style.position = "static";
+    this.canvas.parentElement.style.background = "#1a1a2e";
+    this.canvas.parentElement.style.display = "flex";
+    this.canvas.parentElement.style.alignItems = "center";
+    this.canvas.parentElement.style.justifyContent = "center";
     this.canvas.width = Math.floor(cw * this.state.dpr);
     this.canvas.height = Math.floor(ch * this.state.dpr);
     this.ctx.setTransform(this.state.dpr, 0, 0, this.state.dpr, 0, 0);
