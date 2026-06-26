@@ -1,124 +1,114 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#b80e0e" />
-    <meta
-      name="description"
-      content="Jogo arcade mobile estilo Flappy Hot Dog para jogar no navegador."
-    />
-    <title>Hot Dog Dash</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="app" aria-label="Hot Dog Dash">
-      <canvas id="game" aria-label="Area do jogo"></canvas>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#DC2626" />
+  <meta name="description" content="Jogos exclusivos do Mega Dogão - Pinball e Hot Dog Dash" />
+  <title>Jogos do Mega Dogão</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Poppins', sans-serif; background: #f9fafb; min-height: 100vh; }
+    .header {
+      background: linear-gradient(135deg, #DC2626 0%, #F59E0B 100%);
+      padding: 3rem 1rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: ''; position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.5;
+    }
+    .header-content { position: relative; z-index: 1; }
+    .logo {
+      width: 80px; height: 80px; background: white; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+    .logo span { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #DC2626, #F59E0B); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .header h1 { font-size: 2rem; font-weight: 800; color: white; margin-bottom: 0.5rem; }
+    .header p { font-size: 1rem; color: rgba(255,255,255,0.9); max-width: 400px; margin: 0 auto; }
+    .games-grid {
+      max-width: 500px; margin: 2rem auto; padding: 0 1rem 3rem;
+      display: grid; grid-template-columns: 1fr; gap: 1.5rem;
+    }
+    .game-card {
+      background: white; border-radius: 1.5rem; overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08); cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      text-decoration: none; display: block;
+    }
+    .game-card:hover { transform: translateY(-6px); box-shadow: 0 12px 40px rgba(0,0,0,0.15); }
+    .game-card:active { transform: scale(0.97); }
+    .game-banner {
+      height: 200px; display: flex; align-items: center; justify-content: center;
+      font-size: 5rem; position: relative; overflow: hidden;
+    }
+    .game-banner.pinball { background: linear-gradient(135deg, #0a0a2e, #1a1a4e); }
+    .game-banner.hotdog { background: linear-gradient(135deg, #DC2626, #F59E0B); }
+    .game-banner .emoji { position: relative; z-index: 1; transition: transform 0.3s; }
+    .game-card:hover .emoji { transform: scale(1.2) rotate(-5deg); }
+    .game-info { padding: 1.25rem 1.5rem; }
+    .game-info h2 { font-size: 1.25rem; font-weight: 700; color: #1F2937; margin-bottom: 0.25rem; }
+    .game-info p { font-size: 0.875rem; color: #6B7280; line-height: 1.5; }
+    .game-badge {
+      display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      padding: 0.2rem 0.75rem; border-radius: 999px; margin-top: 0.5rem;
+    }
+    .badge-free { background: #DCFCE7; color: #16A34A; }
+    .badge-new { background: #FEF3C7; color: #D97706; }
+    .footer {
+      text-align: center; padding: 2rem; color: #9CA3AF; font-size: 0.8rem;
+      border-top: 1px solid #E5E7EB; max-width: 500px; margin: 0 auto;
+    }
+    .footer strong { color: #DC2626; }
+    @media (max-width: 480px) {
+      .header { padding: 2rem 1rem; }
+      .header h1 { font-size: 1.5rem; }
+      .game-banner { height: 160px; font-size: 4rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div class="logo"><span>D</span></div>
+      <h1>Jogos do Mega Dogão</h1>
+      <p>Divirta-se enquanto espera seu pedido!</p>
+    </div>
+  </div>
 
-      <div class="score" id="score">0</div>
+  <div class="games-grid">
+    <a class="game-card" href="hotdog-dash.html">
+      <div class="game-banner hotdog">
+        <span class="emoji">🌭</span>
+      </div>
+      <div class="game-info">
+        <h2>Hot Dog Dash</h2>
+        <p>Ajude o Dogão a voar pelos obstáculos. Toque para voar e bata seu recorde!</p>
+        <span class="game-badge badge-free">Grátis</span>
+      </div>
+    </a>
 
-      <button class="sound-button" id="soundButton" type="button" aria-label="Silenciar som">
-        🔊
-      </button>
+    <a class="game-card" href="pinball.html">
+      <div class="game-banner pinball">
+        <span class="emoji">🕹️</span>
+      </div>
+      <div class="game-info">
+        <h2>Pinball</h2>
+        <p>Pinball clássico com física realista, bumpers e flippers. Quantos pontos você faz?</p>
+        <span class="game-badge badge-new">Novo</span>
+      </div>
+    </a>
+  </div>
 
-      <section class="screen checkin-screen hidden" id="checkinScreen">
-        <div class="checkin-card">
-          <img
-            src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
-            alt="O Mega Dogao"
-          />
-          <span class="checkin-badge">CHECK-IN</span>
-          <h2>Siga O Mega Dogao</h2>
-          <p>Abra o Instagram da loja, siga o perfil e volte para liberar sua partida.</p>
-          <a
-            class="instagram-button"
-            id="instagramButton"
-            href="https://www.instagram.com/omegadogaocwb/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Abrir Instagram
-          </a>
-          <button class="confirm-follow-button" id="confirmFollowButton" type="button">
-            Ja segui, jogar
-          </button>
-          <button class="skip-checkin-button" id="closeCheckinButton" type="button">Voltar ao Instagram</button>
-        </div>
-      </section>
-
-      <section class="screen start-screen hidden" id="startScreen">
-        <img
-          class="brand-logo"
-          src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
-          alt="O Mega Dogao"
-        />
-
-        <div class="title-stack">
-          <h1>Flappy</h1>
-          <h2><span id="titleCharacter">Hot Dog</span> <span id="titleEmoji">🌭</span></h2>
-        </div>
-
-        <div class="hero-character" id="heroCharacter">🌭</div>
-        <p class="record" id="recordLine">RECORDE: 0</p>
-        <div class="device-log" id="deviceLog">
-          <span>ULTIMA PARTIDA</span>
-          <strong id="lastScoreLine">0 pontos</strong>
-          <small id="deviceLine">dispositivo local</small>
-        </div>
-
-        <div class="chooser">
-          <p>ESCOLHA SEU PERSONAGEM</p>
-          <div class="card-row" id="characterOptions"></div>
-        </div>
-
-        <div class="chooser">
-          <p>DIFICULDADE</p>
-          <div class="card-row" id="difficultyOptions"></div>
-        </div>
-
-        <button class="play-button" id="playButton" type="button">▶ JOGAR</button>
-        <button class="follow-status" id="followStatusButton" type="button">
-          Check-in Instagram pendente
-        </button>
-        <p class="hint">TOQUE OU PRESSIONE ESPACO</p>
-
-        <footer>PATROCINADO POR <strong>O MEGA DOGAO</strong> DESDE 2000</footer>
-      </section>
-
-      <section class="screen gameover-screen hidden" id="gameoverScreen">
-        <div class="gameover-card">
-          <img
-            src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png"
-            alt="O Mega Dogao"
-          />
-          <div class="result-emoji" id="resultEmoji">💥</div>
-          <h2 id="resultTitle">O CACHORRO PEGOU!</h2>
-          <p class="new-record hidden" id="newRecord">★ NOVO RECORDE! ★</p>
-
-          <div class="result-grid">
-            <div>
-              <span>PONTOS</span>
-              <strong id="finalScore">0</strong>
-            </div>
-            <div>
-              <span>RECORDE</span>
-              <strong id="bestScore">0</strong>
-            </div>
-          </div>
-          <p class="last-log" id="lastLogLine">Pontuacao salva neste dispositivo.</p>
-
-          <button class="again-button" id="againButton" type="button">↻ DE NOVO!</button>
-          <p class="card-footer">O MEGA DOGAO - DESDE 2000</p>
-        </div>
-      </section>
-    </main>
-
-    <script src="game.js"></script>
-  </body>
+  <div class="footer">
+    PATROCINADO POR <strong>O MEGA DOGÃO</strong> DESDE 2000
+  </div>
+</body>
 </html>
