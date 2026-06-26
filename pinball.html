@@ -4,159 +4,280 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#0a0a2e" />
-  <meta name="description" content="Jogo Pinball clássico para jogar no navegador." />
+  <meta name="description" content="Jogo Pinball classico do Mega Dogao." />
   <title>Pinball - Mega Dogão</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Poppins', sans-serif; background: #0a0a2e; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-    .top-bar { width: 100%; max-width: 400px; display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; }
-    .top-bar a { color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.85rem; font-weight: 500; transition: color 0.2s; }
-    .top-bar a:hover { color: white; }
-    .top-bar h1 { font-size: 1rem; font-weight: 700; color: rgba(255,255,255,0.8); }
-    .top-bar button { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: color 0.2s; }
-    .top-bar button:hover { color: white; }
-    .game-wrapper { width: 100%; max-width: 400px; border-radius: 1rem; overflow: hidden; box-shadow: 0 0 40px rgba(0,200,255,0.15); }
-    canvas { width: 100%; display: block; touch-action: none; }
-    .controls { margin-top: 1rem; display: flex; gap: 1.5rem; color: rgba(255,255,255,0.3); font-size: 0.75rem; }
-    @media (max-width: 420px) {
-      .top-bar { padding: 0.5rem 0.75rem; }
-      .top-bar h1 { font-size: 0.85rem; }
-    }
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Fredoka One',cursive;background:#0a0a2e;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+    .top-bar{width:100%;max-width:420px;display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;position:relative;z-index:10}
+    .top-bar a{color:rgba(255,255,255,0.4);text-decoration:none;font-size:0.85rem;transition:color 0.2s}
+    .top-bar a:hover{color:#ffd700}
+    .top-bar h1{font-size:1rem;color:rgba(255,255,255,0.7)}
+    .top-bar button{background:none;border:none;color:rgba(255,255,255,0.5);font-size:0.85rem;cursor:pointer;font-family:inherit;transition:color 0.2s}
+    .top-bar button:hover{color:#ffd700}
+    .game-wrapper{width:100%;max-width:420px;border-radius:1rem;overflow:hidden;box-shadow:0 0 60px rgba(0,200,255,0.12);position:relative}
+    canvas{width:100%;display:block;touch-action:none}
+    .controls{display:flex;gap:2rem;margin-top:0.75rem;color:rgba(255,255,255,0.2);font-size:0.75rem;font-family:'Press Start 2P',monospace;font-size:0.5rem;text-align:center}
+    .controls span{max-width:160px}
+    @media(max-width:420px){.top-bar{padding:0.4rem 0.75rem}.top-bar h1{font-size:0.85rem}}
   </style>
 </head>
 <body>
   <div class="top-bar">
     <a href="index.html">← Jogos</a>
     <h1>🕹️ Pinball</h1>
-    <button id="restartBtn">Reiniciar</button>
+    <button id="resetBtn">Reiniciar</button>
   </div>
   <div class="game-wrapper">
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="c"></canvas>
   </div>
   <div class="controls">
     <span>← → ou toque nas laterais</span>
-    <span>Espaço para lançar</span>
+    <span>↓ ou toque no centro = lançar</span>
   </div>
   <script>
-    const canvas = document.getElementById('gameCanvas')
+    const HS_KEY = 'pinball_megadogao_hs'
+    const canvas = document.getElementById('c')
     const ctx = canvas.getContext('2d')
-
-    const W = 400, H = 700
+    const W = 400, H = 680
     canvas.width = W
     canvas.height = H
 
-    const BALL_R = 8
-    const FLIPPER_W = 80, FLIPPER_H = 14, FLIPPER_R = 10
-    const BUMPER_R = 22
-    const GRAVITY = 0.15
-    const FRICTION = 0.99
+    const BALL_R = 7
+    const FLIP_W = 85, FLIP_H = 14, FLIP_R = 12
+
+    let actx = null
+    function getAudio() {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
+      if (actx.state === 'suspended') actx.resume()
+      return actx
+    }
+    function sfx(freq, dur, type = 'square', vol = 0.12) {
+      try {
+        const a = getAudio(), o = a.createOscillator(), g = a.createGain()
+        o.type = type
+        o.frequency.setValueAtTime(freq, a.currentTime)
+        g.gain.setValueAtTime(vol, a.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur)
+        o.connect(g); g.connect(a.destination)
+        o.start(); o.stop(a.currentTime + dur)
+      } catch(e) {}
+    }
+    function sBumper() { sfx(520, 0.12, 'square', 0.1) }
+    function sLaunch() { sfx(240, 0.2, 'sine', 0.15); setTimeout(() => sfx(360, 0.15, 'sine', 0.12), 100) }
+    function sFlipper() { sfx(180, 0.04, 'square', 0.06) }
+    function sDrain() { sfx(120, 0.4, 'sawtooth', 0.15) }
+    function sMulti() { sfx(660, 0.1, 'sine', 0.1); setTimeout(() => sfx(880, 0.1, 'sine', 0.1), 80); setTimeout(() => sfx(1100, 0.12, 'sine', 0.1), 160) }
 
     const state = {
-      ball: null, score: 0, lives: 3,
-      gameState: 'ready',
-      flippers: {
-        left: { angle: 0.5, target: 0.5, x: 110, y: H - 70 },
-        right: { angle: -0.5, target: -0.5, x: W - 110, y: H - 70 },
-        hw: FLIPPER_W / 2,
-      },
-      bumpers: [],
-      walls: [
-        { x1: 30, y1: 100, x2: 30, y2: H - 100 },
-        { x1: W - 30, y1: 100, x2: W - 30, y2: H - 100 },
-        { x1: 30, y1: 100, x2: W - 30, y2: 100 },
-        { x1: 30, y1: H - 100, x2: 80, y2: H - 20 },
-        { x1: W - 30, y1: H - 100, x2: W - 80, y2: H - 20 },
-      ],
+      score: 0, hiScore: parseInt(localStorage.getItem(HS_KEY) || '0'),
+      lives: 3, game: 'launch', // launch, playing, over
+      shake: 0,
+      ball: null, balls: [],
+      fl: { L: { a: 0.45, t: 0.45, x: 100, y: H - 60 }, R: { a: -0.45, t: -0.45, x: W - 100, y: H - 60 } },
+      bumpers: [], pops: [], stars: [], coins: [], particles: [], floatTexts: [],
+      plunger: { pct: 0, charging: false, power: 0 },
+      kickback: false, multi: 1, multiTimer: 0, ballSave: false, ballSaveTimer: 0,
+      frame: 0,
     }
 
-    for (let row = 0; row < 3; row++)
-      for (let col = 0; col < 4; col++)
-        state.bumpers.push({
-          x: 80 + col * 80 + (row % 2) * 40,
-          y: 140 + row * 70,
-          r: BUMPER_R, points: 100 + row * 50,
-          hit: false, hitTimer: 0,
-        })
+    const WALLS = [
+      { x1: 24, y1: 40, x2: 24, y2: H - 80 },
+      { x1: W - 24, y1: 40, x2: W - 24, y2: H - 80 },
+      { x1: 24, y1: 40, x2: W - 24, y2: 40 },
+      { x1: 24, y1: H - 80, x2: 85, y2: H - 12 },
+      { x1: W - 24, y1: H - 80, x2: W - 85, y2: H - 12 },
+    ]
+    const LANE_WALLS = [
+      { x1: 24, y1: 40, x2: W - 24, y2: 40 },
+      { x1: 24, y1: 40, x2: 24, y2: H - 80 },
+      { x1: W - 24, y1: 40, x2: W - 24, y2: H - 80 },
+    ]
+
+    function setup() {
+      for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 4; c++)
+          state.bumpers.push({
+            x: 75 + c * 70 + (r % 2) * 35, y: 90 + r * 65,
+            r: 20, pts: 100 + r * 50, hit: 0
+          })
+      for (let r = 0; r < 2; r++)
+        for (let c = 0; c < 3; c++)
+          state.pops.push({
+            x: 90 + c * 100 + (r % 2) * 50, y: 300 + r * 55,
+            r: 14, pts: 50, hit: 0
+          })
+      state.stars = [
+        { x: W / 2, y: 55, r: 12, active: true, timer: 0 },
+        { x: 50, y: 52, r: 10, active: true, timer: 0 },
+        { x: W - 50, y: 52, r: 10, active: true, timer: 0 },
+      ]
+    }
+    setup()
 
     function resetBall() {
-      state.ball = { x: W / 2, y: H - 140, vx: (Math.random() - 0.5) * 2, vy: -6, r: BALL_R }
+      return { x: W / 2, y: H - 170, vx: (Math.random() - 0.5) * 1.5, vy: -6, r: BALL_R, trail: [] }
     }
-    resetBall()
+
+    function freshBall() { state.ball = resetBall(); state.balls = [state.ball]; state.game = 'launch'; state.plunger.power = 0; state.plunger.pct = 0 }
 
     function launch() {
-      if (state.gameState === 'ready' && state.lives > 0) {
-        state.gameState = 'playing'
-        state.ball.x = W / 2; state.ball.y = H - 140
-        state.ball.vx = (Math.random() - 0.5) * 2
-        state.ball.vy = -6
+      if (state.game === 'launch' && state.lives > 0) {
+        const pwr = 4 + state.plunger.power * 0.06
+        state.ball.vy = -pwr
+        state.ball.vx = (Math.random() - 0.5) * 1.2
+        state.game = 'playing'
+        sLaunch()
+        state.ballSave = true; state.ballSaveTimer = 90
+      } else if (state.game === 'over') {
+        state.lives = 3; state.score = 0; state.multi = 1; state.multiTimer = 0
+        freshBall()
+        state.game = 'launch'
       }
     }
 
-    const keys = { left: false, right: false }
-    const touch = { left: false, right: false }
+    function addParticles(x, y, color, count = 12, speed = 3) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2, s = Math.random() * speed + 1
+        state.particles.push({
+          x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1,
+          life: 1, decay: 0.015 + Math.random() * 0.02,
+          r: 2 + Math.random() * 3, color,
+        })
+      }
+    }
+    function addFloat(x, y, text, color = '#ffd700') {
+      state.floatTexts.push({ x, y, text, color, life: 1, vy: -1.5 })
+    }
+
+    const KEYS = { left: false, right: false }
+    const TCH = { left: false, right: false, center: false }
 
     window.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') { keys.left = true; e.preventDefault() }
-      if (e.key === 'ArrowRight' || e.key === 'd') { keys.right = true; e.preventDefault() }
-      if (e.key === ' ' || e.key === 'ArrowDown') { launch(); e.preventDefault() }
+      if (e.key === 'ArrowLeft' || e.key === 'a') { KEYS.left = true; e.preventDefault() }
+      if (e.key === 'ArrowRight' || e.key === 'd') { KEYS.right = true; e.preventDefault() }
+      if (e.key === ' ' || e.key === 'ArrowDown') { if (state.game === 'launch') { state.plunger.charging = true }; e.preventDefault() }
     })
     window.addEventListener('keyup', e => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') { keys.left = false; e.preventDefault() }
-      if (e.key === 'ArrowRight' || e.key === 'd') { keys.right = false; e.preventDefault() }
+      if (e.key === 'ArrowLeft' || e.key === 'a') { KEYS.left = false; e.preventDefault() }
+      if (e.key === 'ArrowRight' || e.key === 'd') { KEYS.right = false; e.preventDefault() }
+      if (e.key === ' ' || e.key === 'ArrowDown') { state.plunger.charging = false; if (state.game === 'launch') { launch() }; e.preventDefault() }
     })
 
     canvas.addEventListener('touchstart', e => {
       const t = e.touches[0]; if (!t) return
-      const rect = canvas.getBoundingClientRect()
-      touch.left = (t.clientX - rect.left) < rect.width / 2
-      touch.right = !touch.left
-      launch()
+      const r = canvas.getBoundingClientRect()
+      const x = t.clientX - r.left, w = r.width
+      const centerW = w * 0.3
+      if (x > (w - centerW) / 2 && x < (w + centerW) / 2) {
+        if (state.game === 'launch') { state.plunger.charging = true }
+        else TCH.center = true
+      } else {
+        TCH.left = x < w / 2; TCH.right = !TCH.left
+      }
+      if (state.game === 'over') launch()
       e.preventDefault()
     }, { passive: false })
-    canvas.addEventListener('touchend', e => { touch.left = false; touch.right = false; e.preventDefault() }, { passive: false })
+    canvas.addEventListener('touchend', e => {
+      if (state.plunger.charging) { state.plunger.charging = false; launch() }
+      TCH.left = false; TCH.right = false; TCH.center = false
+      e.preventDefault()
+    }, { passive: false })
     canvas.addEventListener('touchmove', e => {
       const t = e.touches[0]; if (!t) return
-      const rect = canvas.getBoundingClientRect()
-      touch.left = (t.clientX - rect.left) < rect.width / 2
-      touch.right = !touch.left
+      const r = canvas.getBoundingClientRect()
+      const x = t.clientX - r.left
+      TCH.left = x < r.width / 2; TCH.right = !TCH.left
       e.preventDefault()
     }, { passive: false })
-    canvas.addEventListener('click', launch)
-
-    document.getElementById('restartBtn').addEventListener('click', () => {
-      state.lives = 3; state.score = 0; state.gameState = 'ready'
-      state.ball.x = W / 2; state.ball.y = H - 140
-      state.ball.vx = 0; state.ball.vy = 0
+    canvas.addEventListener('mousedown', e => {
+      if (state.game === 'over') { launch(); return }
+      if (state.game === 'launch') { state.plunger.charging = true; return }
+    })
+    canvas.addEventListener('mouseup', e => {
+      if (state.plunger.charging) { state.plunger.charging = false; launch() }
     })
 
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      state.lives = 3; state.score = 0; state.multi = 1; state.multiTimer = 0
+      state.particles = []; state.floatTexts = []
+      freshBall()
+    })
+
+    function flipperHit(fl, bx, by) {
+      const cos = Math.cos(fl.a), sin = Math.sin(fl.a)
+      const dx = bx - fl.x, dy = by - fl.y
+      const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos
+      const hw = FLIP_W / 2
+      if (lx >= -hw - 8 && lx <= hw + 8 && ly >= -FLIP_H / 2 - BALL_R && ly <= FLIP_H / 2 + BALL_R) {
+        if (ly > 0) return { hit: true, lx, push: lx / hw }
+      }
+      return { hit: false }
+    }
+
+    function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1) }
+
+    function collideCircle(bx, by, br, cx, cy, cr) {
+      const d = dist(bx, by, cx, cy)
+      if (d < br + cr) {
+        const nx = (bx - cx) / d, ny = (by - cy) / d
+        return { hit: true, nx, ny, overlap: br + cr - d }
+      }
+      return { hit: false }
+    }
+
     function update() {
-      const fl = state.flippers
-      const leftActive = keys.left || touch.left
-      const rightActive = keys.right || touch.right
-      fl.left.target = leftActive ? -0.5 : 0.5
-      fl.right.target = rightActive ? 0.5 : -0.5
-      fl.left.angle += (fl.left.target - fl.left.angle) * 0.3
-      fl.right.angle += (fl.right.target - fl.right.angle) * 0.3
+      state.frame++
+      const fl = state.fl
+      const lAct = KEYS.left || TCH.left
+      const rAct = KEYS.right || TCH.right
+      if (lAct !== (fl.L.t === -0.5)) { if (lAct) sFlipper() }
+      if (rAct !== (fl.R.t === 0.5)) { if (rAct) sFlipper() }
+      fl.L.t = lAct ? -0.5 : 0.45
+      fl.R.t = rAct ? 0.5 : -0.45
+      fl.L.a += (fl.L.t - fl.L.a) * 0.35
+      fl.R.a += (fl.R.t - fl.R.a) * 0.35
 
-      if (state.gameState !== 'playing' || !state.ball) return
+      if (state.plunger.charging) {
+        state.plunger.power = Math.min(state.plunger.power + 3, 100)
+        state.plunger.pct = state.plunger.power / 100
+      }
+
+      if (state.ballSaveTimer > 0) { state.ballSaveTimer--; if (state.ballSaveTimer === 0) state.ballSave = false }
+      if (state.multiTimer > 0) { state.multiTimer--; if (state.multiTimer === 0) state.multi = 1 }
+
+      if (state.game !== 'playing' || !state.ball) return
+
       const b = state.ball
-      b.vy += GRAVITY; b.vx *= FRICTION; b.vy *= FRICTION
+      b.vy += 0.14
+      b.vx *= 0.995; b.vy *= 0.995
       b.x += b.vx; b.y += b.vy
+      b.trail.push({ x: b.x, y: b.y })
+      if (b.trail.length > 8) b.trail.shift()
 
-      if (b.y + b.r > H - 20) {
+      const S = state.shake
+      if (S > 0) state.shake *= 0.85
+      if (state.shake < 0.5) state.shake = 0
+
+      if (b.y + b.r > H - 14) {
+        if (state.ballSave) { b.y = H - 100; b.vy = -3; b.vx = (Math.random() - 0.5) * 2; state.ballSave = false; addFloat(W/2, H/2, 'SALVO!', '#00ff88'); return }
+        sDrain()
         state.lives--
-        if (state.lives <= 0) { state.gameState = 'gameover'; return }
-        state.gameState = 'ready'
-        b.x = W / 2; b.y = H - 140; b.vx = 0; b.vy = 0
+        addParticles(b.x, b.y, '#ff4444', 20, 4); state.shake = 6
+        if (state.lives <= 0) { state.game = 'over'; b.trail = []; return }
+        freshBall()
         return
       }
 
-      for (const w of state.walls) {
-        const dx = w.x2 - w.x1, dy = w.y2 - w.y1
-        const len = Math.sqrt(dx * dx + dy * dy)
+      if (b.x - b.r < 5) { b.x = b.r + 5; b.vx = Math.abs(b.vx) * 0.7 }
+      if (b.x + b.r > W - 5) { b.x = W - b.r - 5; b.vx = -Math.abs(b.vx) * 0.7 }
+      if (b.y - b.r < 35) { b.y = b.r + 35; b.vy = Math.abs(b.vy) * 0.7 }
+
+      for (const w of WALLS) {
+        const dx = w.x2 - w.x1, dy = w.y2 - w.y1, len = Math.hypot(dx, dy)
         const nx = -dy / len, ny = dx / len
         const d = (b.x - w.x1) * nx + (b.y - w.y1) * ny
         if (Math.abs(d) < b.r) {
@@ -165,7 +286,7 @@
             const dot = b.vx * nx + b.vy * ny
             if (dot < 0) {
               b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny
-              b.vx *= 0.95; b.vy *= 0.95
+              b.vx *= 0.92; b.vy *= 0.92
               b.x += nx * (b.r - Math.abs(d) + 1)
               b.y += ny * (b.r - Math.abs(d) + 1)
             }
@@ -173,125 +294,283 @@
         }
       }
 
-      if (b.x - b.r < 5) { b.x = b.r + 5; b.vx = Math.abs(b.vx) * 0.8 }
-      if (b.x + b.r > W - 5) { b.x = W - b.r - 5; b.vx = -Math.abs(b.vx) * 0.8 }
-      if (b.y - b.r < 95) { b.y = b.r + 95; b.vy = Math.abs(b.vy) * 0.8 }
-
-      ;[
-        { cx: fl.left.x, cy: fl.left.y, angle: fl.left.angle },
-        { cx: fl.right.x, cy: fl.right.y, angle: fl.right.angle },
-      ].forEach(f => {
-        const cos = Math.cos(f.angle), sin = Math.sin(f.angle)
-        const hw = FLIPPER_W / 2
-        const dx = b.x - f.cx, dy = b.y - f.cy
-        const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos
-        if (lx >= -hw - 10 && lx <= hw + 10 && ly >= -FLIPPER_H / 2 - BALL_R && ly <= FLIPPER_H / 2 + BALL_R) {
-          if (ly > 0 && Math.abs(lx) <= hw + BALL_R) {
-            b.vy -= 3
-            const push = lx / hw
-            b.vx += push * 0.8
-          }
-        }
-      })
-
       for (const bumper of state.bumpers) {
-        const dx = b.x - bumper.x, dy = b.y - bumper.y
-        const d = Math.sqrt(dx * dx + dy * dy)
-        if (d < b.r + bumper.r) {
-          const n = { x: dx / d, y: dy / d }
-          const dot = b.vx * n.x + b.vy * n.y
+        const c = collideCircle(b.x, b.y, b.r, bumper.x, bumper.y, bumper.r)
+        if (c.hit) {
+          const dot = b.vx * c.nx + b.vy * c.ny
           if (dot < 0) {
-            b.vx -= 2 * dot * n.x * 1.3; b.vy -= 2 * dot * n.y * 1.3
-            b.x = bumper.x + n.x * (bumper.r + b.r + 2)
-            b.y = bumper.y + n.y * (bumper.r + b.r + 2)
-            state.score += bumper.points
-            bumper.hit = true; bumper.hitTimer = 10
+            b.vx -= 2 * dot * c.nx * 1.4; b.vy -= 2 * dot * c.ny * 1.4
+            b.x = bumper.x + c.nx * (bumper.r + b.r + 2)
+            b.y = bumper.y + c.ny * (bumper.r + b.r + 2)
+            const pts = Math.floor(bumper.pts * state.multi)
+            state.score += pts; bumper.hit = 20
+            sBumper(); addParticles(bumper.x, bumper.y, '#ff8800', 8, 3)
+            addFloat(bumper.x, bumper.y - 15, `+${pts}`, '#ffcc00')
+            state.shake = Math.max(state.shake, 2)
           }
         }
-        if (bumper.hitTimer > 0) bumper.hitTimer--
-        else bumper.hit = false
+        if (bumper.hit > 0) bumper.hit--
       }
 
-      const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy)
-      if (speed > 12) { b.vx = (b.vx / speed) * 12; b.vy = (b.vy / speed) * 12 }
+      for (const pop of state.pops) {
+        const c = collideCircle(b.x, b.y, b.r, pop.x, pop.y, pop.r)
+        if (c.hit) {
+          const dot = b.vx * c.nx + b.vy * c.ny
+          if (dot < 0) {
+            b.vx -= 2 * dot * c.nx * 1.2; b.vy -= 2 * dot * c.ny * 1.2
+            b.x = pop.x + c.nx * (pop.r + b.r + 1)
+            b.y = pop.y + c.ny * (pop.r + b.r + 1)
+            const pts = Math.floor(pop.pts * state.multi)
+            state.score += pts; pop.hit = 15
+            sfx(300 + Math.random() * 200, 0.06, 'sine', 0.06)
+            addParticles(pop.x, pop.y, '#00ddff', 6, 2)
+          }
+        }
+        if (pop.hit > 0) pop.hit--
+      }
+
+      for (const star of state.stars) {
+        if (!star.active) continue
+        const c = collideCircle(b.x, b.y, b.r, star.x, star.y, star.r)
+        if (c.hit) {
+          star.active = false; star.timer = 300
+          state.multi = Math.min(state.multi + 0.5, 5); state.multiTimer = 600
+          state.score += 250
+          sMulti()
+          addParticles(star.x, star.y, '#ffd700', 20, 5)
+          addFloat(star.x, star.y - 20, `x${state.multi}`, '#ffd700')
+          state.shake = 3
+          const dot = b.vx * c.nx + b.vy * c.ny
+          if (dot < 0) { b.vx -= 2 * dot * c.nx; b.vy -= 2 * dot * c.ny }
+          b.x = star.x + c.nx * (star.r + b.r + 1)
+          b.y = star.y + c.ny * (star.r + b.r + 1)
+        }
+      }
+      for (const star of state.stars) {
+        if (!star.active && star.timer > 0) { star.timer--; if (star.timer === 0) star.active = true }
+      }
+
+      const speed = Math.hypot(b.vx, b.vy)
+      if (speed > 14) { b.vx = (b.vx / speed) * 14; b.vy = (b.vy / speed) * 14 }
     }
 
     function draw() {
-      ctx.clearRect(0, 0, W, H)
-      const grad = ctx.createLinearGradient(0, 0, 0, H)
-      grad.addColorStop(0, '#0a0a2e'); grad.addColorStop(0.5, '#1a1a4e'); grad.addColorStop(1, '#0d0d3d')
-      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H)
+      ctx.save()
+      if (state.shake > 0.5) {
+        const sx = (Math.random() - 0.5) * state.shake * 2
+        const sy = (Math.random() - 0.5) * state.shake * 2
+        ctx.translate(sx, sy)
+      }
 
-      ctx.shadowColor = 'rgba(0,200,255,0.3)'; ctx.shadowBlur = 20
+      const bg = ctx.createRadialGradient(W / 2, H / 2, 100, W / 2, H / 2, 500)
+      bg.addColorStop(0, '#12123a'); bg.addColorStop(0.5, '#0a0a2e'); bg.addColorStop(1, '#050520')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
+
+      for (let i = 0; i < 30; i++) {
+        const sx = (i * 137 + 50) % W, sy = (i * 97 + 30) % H
+        ctx.fillStyle = `rgba(255,255,255,${0.03 + Math.sin(state.frame * 0.02 + i) * 0.02})`
+        ctx.beginPath(); ctx.arc(sx, sy, 1, 0, Math.PI * 2); ctx.fill()
+      }
+
+      ctx.shadowColor = '#00c8ff'; ctx.shadowBlur = 15
       ctx.strokeStyle = '#00c8ff'; ctx.lineWidth = 3
-      ctx.strokeRect(5, 95, W - 10, H - 120); ctx.shadowBlur = 0
+      ctx.shadowBlur = 25
+      ctx.beginPath(); ctx.roundRect(10, 30, W - 20, H - 80, 12); ctx.stroke()
+      ctx.shadowBlur = 0
 
-      const fl = state.flippers
-      function drawFlipper(cx, cy, angle) {
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle)
-        ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 15
-        ctx.fillStyle = '#ff4444'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(-fl.hw, -FLIPPER_R)
-        ctx.quadraticCurveTo(-fl.hw - 8, 0, -fl.hw, FLIPPER_R)
-        ctx.lineTo(fl.hw, FLIPPER_R)
-        ctx.quadraticCurveTo(fl.hw + 8, 0, fl.hw, -FLIPPER_R)
-        ctx.closePath(); ctx.fill(); ctx.stroke()
-        ctx.shadowBlur = 0; ctx.restore()
-      }
-      drawFlipper(fl.left.x, fl.left.y, fl.left.angle)
-      drawFlipper(fl.right.x, fl.right.y, fl.right.angle)
-
-      for (const bumper of state.bumpers) {
-        const isHit = bumper.hit
-        ctx.shadowColor = isHit ? '#ffff00' : '#ff8800'
-        ctx.shadowBlur = isHit ? 30 : 15
-        const bg = ctx.createRadialGradient(bumper.x - 5, bumper.y - 5, 2, bumper.x, bumper.y, bumper.r)
-        if (isHit) { bg.addColorStop(0, '#fff'); bg.addColorStop(0.5, '#ff0'); bg.addColorStop(1, '#f80') }
-        else { bg.addColorStop(0, '#fc0'); bg.addColorStop(0.5, '#f80'); bg.addColorStop(1, '#c40') }
-        ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bumper.x, bumper.y, bumper.r, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); ctx.shadowBlur = 0
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Poppins, sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(bumper.points, bumper.x, bumper.y)
-      }
-
-      if (state.ball && state.gameState === 'playing') {
-        const b = state.ball
-        ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 20
-        const bg = ctx.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, b.r)
-        bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#8fc'); bg.addColorStop(1, '#0f8')
-        ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill()
+      for (const w of WALLS) {
+        ctx.strokeStyle = '#ff6644'; ctx.lineWidth = 4; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 8
+        ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke()
         ctx.shadowBlur = 0
       }
 
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Poppins, sans-serif'
+      const fl = state.fl
+      for (const side of ['L', 'R']) {
+        const f = fl[side]
+        ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a)
+        ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 20
+        const grd = ctx.createLinearGradient(-FLIP_W / 2, 0, FLIP_W / 2, 0)
+        grd.addColorStop(0, '#ff2222'); grd.addColorStop(0.5, '#ff6644'); grd.addColorStop(1, '#ff2222')
+        ctx.fillStyle = grd
+        ctx.beginPath()
+        ctx.moveTo(-FLIP_W / 2, -FLIP_R)
+        ctx.quadraticCurveTo(-FLIP_W / 2 - 10, 0, -FLIP_W / 2, FLIP_R)
+        ctx.lineTo(FLIP_W / 2, FLIP_R)
+        ctx.quadraticCurveTo(FLIP_W / 2 + 10, 0, FLIP_W / 2, -FLIP_R)
+        ctx.closePath(); ctx.fill()
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke()
+        ctx.shadowBlur = 0; ctx.restore()
+      }
+
+      for (const bumper of state.bumpers) {
+        const isHit = bumper.hit > 0
+        ctx.shadowColor = isHit ? '#ffff00' : '#ff8800'
+        ctx.shadowBlur = isHit ? 35 : 18
+        const bg = ctx.createRadialGradient(bumper.x - 4, bumper.y - 4, 2, bumper.x, bumper.y, bumper.r + 4)
+        if (isHit) { bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#ff0'); bg.addColorStop(1, '#f80') }
+        else { bg.addColorStop(0, '#fc0'); bg.addColorStop(0.4, '#f80'); bg.addColorStop(1, '#c40') }
+        ctx.fillStyle = bg
+        ctx.beginPath(); ctx.arc(bumper.x, bumper.y, bumper.r + 2, 0, Math.PI * 2); ctx.fill()
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke()
+        ctx.shadowBlur = 0
+        ctx.fillStyle = isHit ? '#fff' : '#ffd700'
+        ctx.font = 'bold 12px "Fredoka One", sans-serif'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(bumper.pts, bumper.x, bumper.y)
+      }
+
+      for (const pop of state.pops) {
+        const isHit = pop.hit > 0
+        ctx.shadowColor = isHit ? '#00eeff' : '#0088cc'
+        ctx.shadowBlur = isHit ? 25 : 12
+        ctx.fillStyle = isHit ? '#88eeff' : '#2266aa'
+        ctx.beginPath(); ctx.arc(pop.x, pop.y, pop.r, 0, Math.PI * 2); ctx.fill()
+        ctx.strokeStyle = '#00ccff'; ctx.lineWidth = 2; ctx.stroke()
+        ctx.shadowBlur = 0
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px "Fredoka One", sans-serif'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(pop.pts, pop.x, pop.y + 1)
+      }
+
+      for (const star of state.stars) {
+        if (!star.active) continue
+        const pulse = 1 + Math.sin(state.frame * 0.05) * 0.15
+        ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 25
+        ctx.fillStyle = '#ffd700'
+        ctx.beginPath(); ctx.arc(star.x, star.y, star.r * pulse, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText('★', star.x, star.y + 1)
+        ctx.shadowBlur = 0
+        ctx.fillStyle = 'rgba(255,215,0,0.3)'
+        ctx.font = '10px "Press Start 2P", monospace'
+        ctx.fillText('MULTI', star.x, star.y + star.r + 14)
+      }
+
+      if (state.ball) {
+        const b = state.ball
+        for (let i = 0; i < b.trail.length; i++) {
+          const t = b.trail[i], a = i / b.trail.length
+          ctx.fillStyle = `rgba(0,255,136,${a * 0.3})`
+          ctx.beginPath(); ctx.arc(t.x, t.y, b.r * a * 0.6, 0, Math.PI * 2); ctx.fill()
+        }
+        if (state.game === 'playing' || state.game === 'launch') {
+          ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 25
+          const bg = ctx.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, b.r + 2)
+          bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#8fc'); bg.addColorStop(1, '#0f8')
+          ctx.fillStyle = bg
+          ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 1, 0, Math.PI * 2); ctx.fill()
+          ctx.shadowBlur = 0
+        }
+      }
+
+      for (const p of state.particles) {
+        ctx.globalAlpha = p.life
+        ctx.fillStyle = p.color
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill()
+      }
+      ctx.globalAlpha = 1
+
+      for (const ft of state.floatTexts) {
+        ctx.globalAlpha = ft.life
+        ctx.fillStyle = ft.color
+        ctx.font = 'bold 16px "Fredoka One", sans-serif'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4
+        ctx.fillText(ft.text, ft.x, ft.y)
+        ctx.shadowBlur = 0
+      }
+      ctx.globalAlpha = 1
+
+      if (state.game === 'launch' && state.lives > 0) {
+        const px = W / 2, py = H - 80
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.roundRect(px - 6, py - 50, 12, 60, 6); ctx.fill()
+        const fillPct = state.plunger.pct
+        const fh = 56 * fillPct
+        ctx.fillStyle = '#ff6644'; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 10
+        ctx.beginPath(); ctx.roundRect(px - 4, py + 4 - fh, 8, fh, 4); ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
+        ctx.beginPath(); ctx.roundRect(px - 6, py - 50, 12, 60, 6); ctx.stroke()
+
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect(W/2-110, H/2-30, 220, 60, 12); ctx.fill()
+        ctx.fillStyle = '#00ff88'
+        ctx.font = 'bold 20px "Fredoka One", sans-serif'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText('SEGURE PARA LANÇAR', W / 2, H / 2)
+      }
+
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 16px "Fredoka One", sans-serif'
       ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-      ctx.fillText(`Score: ${state.score}`, 12, 12)
+      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
+      ctx.fillText(`SCORE: ${state.score}`, 14, 5)
       ctx.textAlign = 'right'
-      let livesStr = ''
-      for (let i = 0; i < state.lives; i++) livesStr += '\u{1F7E2}'
-      for (let i = state.lives; i < 3; i++) livesStr += '\u{26AB}'
-      ctx.fillText(livesStr, W - 12, 12)
+      ctx.fillText(`HI: ${state.hiScore}`, W - 14, 5)
+      ctx.shadowBlur = 0
+      ctx.textAlign = 'left'; ctx.fillText(`×${state.multi.toFixed(1)}`, 14, 24)
 
-      if (state.gameState === 'ready' && state.lives > 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, H / 2 - 40, W, 80)
-        ctx.fillStyle = '#00ff88'; ctx.font = 'bold 22px Poppins, sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText('TOQUE PARA LANÇAR', W / 2, H / 2)
+      let ls = ''
+      for (let i = 0; i < state.lives; i++) ls += '\u{1F7E2}'
+      for (let i = state.lives; i < 3; i++) ls += '\u{26AB}'
+      ctx.textAlign = 'right'
+      ctx.font = '14px sans-serif'
+      ctx.fillText(ls, W - 14, 6)
+
+      if (state.ballSave) {
+        ctx.fillStyle = `rgba(0,255,136,${0.3 + Math.sin(state.frame * 0.1) * 0.2})`
+        ctx.font = '10px "Press Start 2P", monospace'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
+        ctx.fillText('BALL SAVE', W / 2, H - 5)
       }
 
-      if (state.gameState === 'gameover') {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, H / 2 - 60, W, 120)
-        ctx.fillStyle = '#ff4444'; ctx.font = 'bold 30px Poppins, sans-serif'
+      if (state.game === 'over') {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H)
+        const isNew = state.score > state.hiScore
+        if (isNew) { state.hiScore = state.score; localStorage.setItem(HS_KEY, String(state.hiScore)) }
+        ctx.fillStyle = '#ff4444'; ctx.font = 'bold 36px "Fredoka One", sans-serif'
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText('GAME OVER', W / 2, H / 2 - 20)
-        ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 18px Poppins, sans-serif'
-        ctx.fillText(`Score Final: ${state.score}`, W / 2, H / 2 + 25)
+        ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 20
+        ctx.fillText('GAME OVER', W / 2, H / 2 - 40)
+        ctx.shadowBlur = 0
+        if (isNew) {
+          ctx.fillStyle = '#ffd700'
+          ctx.font = 'bold 18px "Press Start 2P", monospace'
+          ctx.fillText('★ NOVO RECORDE! ★', W / 2, H / 2 + 10)
+        }
+        ctx.fillStyle = '#00ff88'
+        ctx.font = 'bold 22px "Fredoka One", sans-serif'
+        ctx.fillText(`SCORE: ${state.score}`, W / 2, H / 2 + 50)
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'
+        ctx.font = '14px "Fredoka One", sans-serif'
+        ctx.fillText(`Melhor: ${state.hiScore}`, W / 2, H / 2 + 80)
+        ctx.fillStyle = '#ffd700'
+        ctx.font = '14px "Press Start 2P", monospace'
+        ctx.fillText('TOQUE PARA JOGAR', W / 2, H / 2 + 125)
       }
+
+      ctx.restore()
     }
 
-    function loop() { update(); draw(); requestAnimationFrame(loop) }
+    function updateParticles() {
+      for (const p of state.particles) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.decay
+      }
+      state.particles = state.particles.filter(p => p.life > 0)
+      for (const ft of state.floatTexts) {
+        ft.y += ft.vy; ft.life -= 0.018
+      }
+      state.floatTexts = state.floatTexts.filter(ft => ft.life > 0)
+    }
+
+    function loop() {
+      update()
+      updateParticles()
+      draw()
+      requestAnimationFrame(loop)
+    }
+    freshBall()
     loop()
   </script>
 </body>
