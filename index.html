@@ -3,112 +3,127 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#DC2626" />
+  <meta name="theme-color" content="#b80e0e" />
   <meta name="description" content="Jogos exclusivos do Mega Dogão - Pinball e Hot Dog Dash" />
   <title>Jogos do Mega Dogão</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Poppins', sans-serif; background: #f9fafb; min-height: 100vh; }
+    body { font-family: 'Fredoka One', cursive; background: #b80e0e; min-height: 100vh; }
+    .bg-pattern {
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(255,200,0,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(255,200,0,0.1) 0%, transparent 60%);
+    }
+    .container { position: relative; z-index: 1; }
     .header {
-      background: linear-gradient(135deg, #DC2626 0%, #F59E0B 100%);
-      padding: 3rem 1rem;
+      padding: 2.5rem 1rem 1.5rem;
       text-align: center;
-      position: relative;
+    }
+    .mega-logo {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff, #ffd700);
+      box-shadow: 0 0 30px rgba(255,215,0,0.4), 0 8px 40px rgba(0,0,0,0.3);
+      margin: 0 auto 1rem;
+      display: flex; align-items: center; justify-content: center;
       overflow: hidden;
     }
-    .header::before {
-      content: ''; position: absolute; inset: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-      opacity: 0.5;
-    }
-    .header-content { position: relative; z-index: 1; }
-    .logo {
-      width: 80px; height: 80px; background: white; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-    }
-    .logo span { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #DC2626, #F59E0B); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .header h1 { font-size: 2rem; font-weight: 800; color: white; margin-bottom: 0.5rem; }
-    .header p { font-size: 1rem; color: rgba(255,255,255,0.9); max-width: 400px; margin: 0 auto; }
+    .mega-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .header h1 { font-family: 'Fredoka One', cursive; font-size: 2rem; color: #ffd700; text-shadow: 3px 3px 0 rgba(0,0,0,0.3); margin-bottom: 0.25rem; }
+    .header p { font-family: 'Fredoka One', cursive; font-size: 1rem; color: rgba(255,255,255,0.85); }
     .games-grid {
-      max-width: 500px; margin: 2rem auto; padding: 0 1rem 3rem;
-      display: grid; grid-template-columns: 1fr; gap: 1.5rem;
+      max-width: 420px; margin: 1.5rem auto; padding: 0 1rem 3rem;
+      display: grid; grid-template-columns: 1fr; gap: 1.25rem;
     }
     .game-card {
-      background: white; border-radius: 1.5rem; overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08); cursor: pointer;
+      display: block; text-decoration: none;
+      background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 1.25rem;
+      backdrop-filter: blur(8px);
+      overflow: hidden;
       transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-      text-decoration: none; display: block;
     }
-    .game-card:hover { transform: translateY(-6px); box-shadow: 0 12px 40px rgba(0,0,0,0.15); }
+    .game-card:hover { transform: translateY(-4px) scale(1.02); border-color: #ffd700; box-shadow: 0 8px 40px rgba(255,215,0,0.25); }
     .game-card:active { transform: scale(0.97); }
     .game-banner {
-      height: 200px; display: flex; align-items: center; justify-content: center;
-      font-size: 5rem; position: relative; overflow: hidden;
+      height: 170px; display: flex; align-items: center; justify-content: center;
+      font-size: 4.5rem; position: relative; overflow: hidden;
     }
-    .game-banner.pinball { background: linear-gradient(135deg, #0a0a2e, #1a1a4e); }
     .game-banner.hotdog { background: linear-gradient(135deg, #DC2626, #F59E0B); }
-    .game-banner .emoji { position: relative; z-index: 1; transition: transform 0.3s; }
+    .game-banner.pinball { background: linear-gradient(135deg, #0a0a2e 0%, #1a1a5e 50%, #0a0a2e 100%); }
+    .game-banner .emoji { transition: transform 0.3s; }
     .game-card:hover .emoji { transform: scale(1.2) rotate(-5deg); }
-    .game-info { padding: 1.25rem 1.5rem; }
-    .game-info h2 { font-size: 1.25rem; font-weight: 700; color: #1F2937; margin-bottom: 0.25rem; }
-    .game-info p { font-size: 0.875rem; color: #6B7280; line-height: 1.5; }
+    .game-banner .sparkle {
+      position: absolute; width: 6px; height: 6px; background: white; border-radius: 50%;
+      animation: twinkle 1.5s ease-in-out infinite;
+    }
+    @keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+    .game-info { padding: 1rem 1.25rem 1.25rem; text-align: center; }
+    .game-info h2 { font-family: 'Fredoka One', cursive; font-size: 1.35rem; color: #ffd700; text-shadow: 2px 2px 0 rgba(0,0,0,0.3); margin-bottom: 0.3rem; }
+    .game-info p { font-family: 'Fredoka One', cursive; font-size: 0.85rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
     .game-badge {
-      display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-      padding: 0.2rem 0.75rem; border-radius: 999px; margin-top: 0.5rem;
+      display: inline-block; font-family: 'Press Start 2P', monospace;
+      font-size: 0.55rem; text-transform: uppercase;
+      padding: 0.3rem 0.75rem; border-radius: 999px; margin-top: 0.6rem;
     }
-    .badge-free { background: #DCFCE7; color: #16A34A; }
-    .badge-new { background: #FEF3C7; color: #D97706; }
+    .badge-free { background: rgba(255,215,0,0.2); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); }
+    .badge-new { background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }
     .footer {
-      text-align: center; padding: 2rem; color: #9CA3AF; font-size: 0.8rem;
-      border-top: 1px solid #E5E7EB; max-width: 500px; margin: 0 auto;
+      text-align: center; padding: 1.5rem 1rem 2rem;
+      font-family: 'Fredoka One', cursive;
+      font-size: 0.8rem; color: rgba(255,255,255,0.5);
+      max-width: 500px; margin: 0 auto;
     }
-    .footer strong { color: #DC2626; }
+    .footer strong { color: #ffd700; }
+    .footer .record { font-family: 'Press Start 2P', monospace; font-size: 0.6rem; color: rgba(255,255,255,0.35); margin-top: 0.5rem; }
     @media (max-width: 480px) {
-      .header { padding: 2rem 1rem; }
+      .header { padding: 2rem 1rem 1rem; }
+      .mega-logo { width: 80px; height: 80px; }
       .header h1 { font-size: 1.5rem; }
-      .game-banner { height: 160px; font-size: 4rem; }
+      .game-banner { height: 140px; font-size: 3.5rem; }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-content">
-      <div class="logo"><span>D</span></div>
+  <div class="bg-pattern"></div>
+  <div class="container">
+    <div class="header">
+      <div class="mega-logo">
+        <img src="https://media.base44.com/images/public/6a065f6a3432e7e768396f1e/5e5cdcc9f_file_00000000419071f5977aff8a7d657fd9.png" alt="O Mega Dogão" />
+      </div>
       <h1>Jogos do Mega Dogão</h1>
-      <p>Divirta-se enquanto espera seu pedido!</p>
+      <p>Escolha seu jogo!</p>
     </div>
-  </div>
 
-  <div class="games-grid">
-    <a class="game-card" href="hotdog-dash.html">
-      <div class="game-banner hotdog">
-        <span class="emoji">🌭</span>
-      </div>
-      <div class="game-info">
-        <h2>Hot Dog Dash</h2>
-        <p>Ajude o Dogão a voar pelos obstáculos. Toque para voar e bata seu recorde!</p>
-        <span class="game-badge badge-free">Grátis</span>
-      </div>
-    </a>
+    <div class="games-grid">
+      <a class="game-card" href="hotdog-dash.html">
+        <div class="game-banner hotdog"><span class="emoji">🌭</span></div>
+        <div class="game-info">
+          <h2>Hot Dog Dash</h2>
+          <p>Ajude o Dogão a voar pelos obstáculos e bata seu recorde!</p>
+          <span class="game-badge badge-free">Grátis</span>
+        </div>
+      </a>
 
-    <a class="game-card" href="pinball.html">
-      <div class="game-banner pinball">
-        <span class="emoji">🕹️</span>
-      </div>
-      <div class="game-info">
-        <h2>Pinball</h2>
-        <p>Pinball clássico com física realista, bumpers e flippers. Quantos pontos você faz?</p>
-        <span class="game-badge badge-new">Novo</span>
-      </div>
-    </a>
-  </div>
+      <a class="game-card" href="pinball.html">
+        <div class="game-banner pinball"><span class="emoji">🕹️</span></div>
+        <div class="game-info">
+          <h2>Pinball</h2>
+          <p>Pinball clássico com física realista, bumpers e flippers!</p>
+          <span class="game-badge badge-new">Novo</span>
+        </div>
+      </a>
+    </div>
 
-  <div class="footer">
-    PATROCINADO POR <strong>O MEGA DOGÃO</strong> DESDE 2000
+    <div class="footer">
+      PATROCINADO POR <strong>O MEGA DOGÃO</strong> DESDE 2000
+      <div class="record">▼</div>
+    </div>
   </div>
 </body>
 </html>
