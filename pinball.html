@@ -2,576 +2,725 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0a2e" />
-  <meta name="description" content="Jogo Pinball classico do Mega Dogao." />
-  <title>Pinball - Mega Dogão</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Pinball Arcade - Mega Dogão" />
+  <title>Pinball Arcade - Mega Dogão</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
-    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    body{font-family:'Fredoka One',cursive;background:#0a0a2e;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow:hidden}
-    .top-bar{width:100%;max-width:420px;display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;position:relative;z-index:10}
-    .top-bar a{color:rgba(255,255,255,0.4);text-decoration:none;font-size:0.85rem;transition:color 0.2s}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+    html,body{width:100%;height:100%;overflow:hidden;background:#050510;touch-action:none}
+    body{font-family:'Fredoka One',cursive;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .top-bar{width:100%;max-width:420px;display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.8rem;position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:100;background:rgba(5,5,16,0.9);backdrop-filter:blur(8px)}
+    .top-bar a{color:rgba(255,255,255,0.4);text-decoration:none;font-size:0.8rem;transition:color 0.2s}
     .top-bar a:hover{color:#ffd700}
-    .top-bar h1{font-size:1rem;color:rgba(255,255,255,0.7)}
-    .top-bar button{background:none;border:none;color:rgba(255,255,255,0.5);font-size:0.85rem;cursor:pointer;font-family:inherit;transition:color 0.2s}
+    .top-bar h1{font-size:0.9rem;color:rgba(255,255,255,0.7)}
+    .top-bar button{background:none;border:none;color:rgba(255,255,255,0.5);font-size:0.8rem;cursor:pointer;font-family:inherit;transition:color 0.2s}
     .top-bar button:hover{color:#ffd700}
-    .game-wrapper{width:100%;max-width:420px;border-radius:1rem;overflow:hidden;box-shadow:0 0 60px rgba(0,200,255,0.12);position:relative}
-    canvas{width:100%;display:block;touch-action:none}
-    .controls{display:flex;gap:2rem;margin-top:0.75rem;color:rgba(255,255,255,0.2);font-size:0.75rem;font-family:'Press Start 2P',monospace;font-size:0.5rem;text-align:center}
-    .controls span{max-width:160px}
-    @media(max-width:420px){.top-bar{padding:0.4rem 0.75rem}.top-bar h1{font-size:0.85rem}}
+    #gameCanvas{display:block;touch-action:none;image-rendering:pixelated}
+    .touch-left,.touch-right{position:fixed;bottom:0;width:50%;height:45%;z-index:50;opacity:0}
+    .touch-left{left:0}
+    .touch-right{right:0}
+    @media(max-width:420px){.top-bar{padding:0.3rem 0.5rem}.top-bar h1{font-size:0.8rem}}
   </style>
 </head>
 <body>
   <div class="top-bar">
     <a href="index.html">← Jogos</a>
-    <h1>🕹️ Pinball</h1>
+    <h1>🕹️ Pinball Arcade</h1>
     <button id="resetBtn">Reiniciar</button>
   </div>
-  <div class="game-wrapper">
-    <canvas id="c"></canvas>
-  </div>
-  <div class="controls">
-    <span>← → ou toque nas laterais</span>
-    <span>↓ ou toque no centro = lançar</span>
-  </div>
+  <canvas id="gameCanvas"></canvas>
+  <div class="touch-left" id="touchL"></div>
+  <div class="touch-right" id="touchR"></div>
   <script>
-    const HS_KEY = 'pinball_megadogao_hs'
-    const canvas = document.getElementById('c')
-    const ctx = canvas.getContext('2d')
-    const W = 400, H = 680
-    canvas.width = W
-    canvas.height = H
+(function(){
+'use strict';
 
-    const BALL_R = 7
-    const FLIP_W = 85, FLIP_H = 14, FLIP_R = 12
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const HS_KEY = 'pinball_arcade_megadogao_hs';
 
-    let actx = null
-    function getAudio() {
-      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
-      if (actx.state === 'suspended') actx.resume()
-      return actx
+let W, H, SCALE;
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+  const maxW = Math.min(window.innerWidth, 420);
+  const maxH = window.innerHeight;
+  const ratio = 400/680;
+  if(maxH/maxW > ratio){ W = maxW; H = W/ratio; }
+  else { H = maxH; W = H*ratio; }
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  SCALE = W/400;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const GW = 400, GH = 680;
+const BALL_R = 8;
+const FLIP_W = 90, FLIP_H = 15, FLIP_R = 14;
+const GRAVITY = 0.16;
+const DAMPING = 0.996;
+const MAX_SPEED = 16;
+
+let actx = null;
+function getAudio(){ if(!actx) actx = new(window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); return actx; }
+function sfx(freq,dur,type='square',vol=0.1){
+  try{
+    const a=getAudio(),o=a.createOscillator(),g=a.createGain();
+    o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);
+    g.gain.setValueAtTime(vol,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+    o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+dur);
+  }catch(e){}
+}
+function sBumper(){sfx(520,0.1,'square',0.08)}
+function sSlingshot(){sfx(800,0.06,'sine',0.1)}
+function sFlipper(){sfx(160,0.04,'square',0.05)}
+function sLaunch(){sfx(200,0.15,'sine',0.12);setTimeout(()=>sfx(350,0.12,'sine',0.1),80)}
+function sDrain(){sfx(100,0.5,'sawtooth',0.12)}
+function sMulti(){sfx(660,0.08,'sine',0.08);setTimeout(()=>sfx(880,0.08,'sine',0.08),60);setTimeout(()=>sfx(1100,0.1,'sine',0.08),120)}
+function sTarget(){sfx(1200,0.05,'sine',0.07)}
+function sRamp(){sfx(400,0.2,'triangle',0.1)}
+function sBonus(){for(let i=0;i<5;i++)setTimeout(()=>sfx(300+i*200,0.08,'sine',0.06),i*50)}
+
+const state = {
+  score:0, hiScore:parseInt(localStorage.getItem(HS_KEY)||'0'),
+  lives:3, game:'launch',
+  shake:0, combo:0, comboTimer:0,
+  ball:null, fl:{L:{a:0.45,t:0.45,x:105,y:GH-65},R:{a:-0.45,t:-0.45,x:GW-105,y:GH-65}},
+  bumpers:[], slings:[], targets:[], lanes:[], ramps:[],
+  particles:[], floatTexts:[], stars:[],
+  plunger:{pct:0,charging:false,power:0},
+  ballSave:false, ballSaveTimer:0,
+  multi:1, multiTimer:0, frame:0,
+  skillShot:-1, skillShotActive:false
+};
+
+const WALLS = [
+  {x1:20,y1:45,x2:20,y2:GH-90},
+  {x1:GW-20,y1:45,x2:GW-20,y2:GH-90},
+  {x1:20,y1:45,x2:GW-20,y2:45},
+  {x1:20,y1:GH-90,x2:90,y2:GH-8},
+  {x1:GW-20,y1:GH-90,x2:GW-90,y2:GH-8},
+  {x1:90,y1:GH-8,x2:GW-90,y2:GH-8}
+];
+
+function setup(){
+  state.bumpers=[
+    {x:GW/2,y:140,r:22,pts:200,hit:0,color:'#ff4444'},
+    {x:GW/2-70,y:200,r:18,pts:150,hit:0,color:'#ff8800'},
+    {x:GW/2+70,y:200,r:18,pts:150,hit:0,color:'#ff8800'},
+    {x:GW/2-40,y:280,r:16,pts:100,hit:0,color:'#ffcc00'},
+    {x:GW/2+40,y:280,r:16,pts:100,hit:0,color:'#ffcc00'},
+    {x:GW/2,y:340,r:14,pts:100,hit:0,color:'#ffcc00'},
+  ];
+
+  state.slings=[
+    {x1:50,y1:GH-140,x2:95,y2:GH-70,x:90,y:GH-110,pts:50,hit:0,dir:1},
+    {x1:GW-50,y1:GH-140,x2:GW-95,y2:GH-70,x:GW-90,y:GH-110,pts:50,hit:0,dir:-1}
+  ];
+
+  state.targets=[
+    {x:GW/2-60,y:85,w:20,h:8,pts:300,active:true,hit:0},
+    {x:GW/2-20,y:85,w:20,h:8,pts:300,active:true,hit:0},
+    {x:GW/2+20,y:85,w:20,h:8,pts:300,active:true,hit:0},
+    {x:GW/2+60,y:85,w:20,h:8,pts:300,active:true,hit:0},
+  ];
+
+  state.lanes=[
+    {x:GW/2-50,y:55,r:8,active:true,pts:75,hit:0},
+    {x:GW/2,y:50,r:8,active:true,pts:75,hit:0},
+    {x:GW/2+50,y:55,r:8,active:true,pts:75,hit:0},
+  ];
+
+  state.ramps=[
+    {x1:30,y1:GH-180,x2:80,y2:100,pts:500,hit:0,cooldown:0},
+    {x1:GW-30,y1:GH-180,x2:GW-80,y2:100,pts:500,hit:0,cooldown:0}
+  ];
+
+  state.stars=[
+    {x:GW/2,y:GH-200,r:12,active:true,timer:0}
+  ];
+}
+setup();
+
+function resetBall(){
+  return{x:GW-40,y:GH-120,vx:0,vy:0,r:BALL_R,trail:[]};
+}
+
+function freshBall(){
+  state.ball=resetBall();
+  state.game='launch';
+  state.plunger.power=0;state.plunger.pct=0;
+  state.skillShot=Math.floor(Math.random()*3);
+  state.skillShotActive=true;
+}
+
+function launch(){
+  if(state.game==='launch'&&state.lives>0){
+    const pwr=5+state.plunger.power*0.08;
+    state.ball.vy=-pwr;
+    state.ball.vx=(Math.random()-0.5)*0.8;
+    state.game='playing';
+    sLaunch();
+    state.ballSave=true;state.ballSaveTimer=120;
+  }else if(state.game==='over'){
+    state.lives=3;state.score=0;state.multi=1;state.multiTimer=0;state.combo=0;
+    setup();freshBall();state.game='launch';
+  }
+}
+
+function addParticles(x,y,color,count=12,speed=3){
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*speed+1;
+    state.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,decay:0.015+Math.random()*0.02,r:2+Math.random()*3,color});
+  }
+}
+function addFloat(x,y,text,color='#ffd700'){
+  state.floatTexts.push({x,y,text,color,life:1,vy:-2});
+}
+
+function addCombo(){
+  state.combo++;
+  state.comboTimer=120;
+  if(state.combo>=3){
+    const bonus=state.combo*50;
+    state.score+=bonus;
+    addFloat(GW/2,GH/2-50,`COMBO x${state.combo}! +${bonus}`,'#ff44ff');
+    sBonus();
+  }
+}
+
+const KEYS={left:false,right:false};
+const TCH={left:false,right:false};
+let plungerTouch=false;
+
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.touches[0];if(!t)return;
+  const r=canvas.getBoundingClientRect();
+  const x=t.clientX-r.left;
+  if(state.game==='over'){launch();return}
+  if(state.game==='launch'){
+    state.plunger.charging=true;plungerTouch=true;return;
+  }
+  if(x<r.width/2) TCH.left=true;
+  else TCH.right=true;
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(plungerTouch&&state.plunger.charging){
+    state.plunger.charging=false;plungerTouch=false;launch();return;
+  }
+  TCH.left=false;TCH.right=false;
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0];if(!t)return;
+  const r=canvas.getBoundingClientRect();
+  const x=t.clientX-r.left;
+  TCH.left=x<r.width/2;TCH.right=!TCH.left;
+},{passive:false});
+
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a'){KEYS.left=true;e.preventDefault()}
+  if(e.key==='ArrowRight'||e.key==='d'){KEYS.right=true;e.preventDefault()}
+  if(e.key===' '||e.key==='ArrowDown'){if(state.game==='launch')state.plunger.charging=true;e.preventDefault()}
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a')KEYS.left=false;
+  if(e.key==='ArrowRight'||e.key==='d')KEYS.right=false;
+  if(e.key===' '||e.key==='ArrowDown'){state.plunger.charging=false;if(state.game==='launch')launch();e.preventDefault()}
+});
+
+canvas.addEventListener('mousedown',e=>{
+  if(state.game==='over'){launch();return}
+  if(state.game==='launch')state.plunger.charging=true;
+});
+canvas.addEventListener('mouseup',()=>{
+  if(state.plunger.charging){state.plunger.charging=false;launch()}
+});
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  state.lives=3;state.score=0;state.multi=1;state.multiTimer=0;state.combo=0;
+  state.particles=[];state.floatTexts=[];
+  setup();freshBall();
+});
+
+function dist(x1,y1,x2,y2){return Math.hypot(x2-x1,y2-y1)}
+
+function collideCircle(bx,by,br,cx,cy,cr){
+  const d=Math.hypot(cx-bx,cy-by);
+  if(d<br+cr){
+    const nx=(bx-cx)/d,ny=(by-cy)/d;
+    return{hit:true,nx,ny,overlap:br+cr-d};
+  }
+  return{hit:false};
+}
+
+function pointToSegDist(px,py,x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1;
+  const len2=dx*dx+dy*dy;
+  let t=((px-x1)*dx+(py-y1)*dy)/len2;
+  t=Math.max(0,Math.min(1,t));
+  const cx=x1+t*dx,cy=y1+t*dy;
+  const dd=Math.hypot(px-cx,py-cy);
+  return{d:dd,t,cx,cy,nx:dd>0?-(cy-py)/dd:0,ny:dd>0?(cx-px)/dd:0};
+}
+
+function update(){
+  state.frame++;
+  const fl=state.fl;
+  const lAct=KEYS.left||TCH.left;
+  const rAct=KEYS.right||TCH.right;
+  if(lAct&&fl.L.a===0.45)sFlipper();
+  if(rAct&&fl.R.a===-0.45)sFlipper();
+  fl.L.t=lAct?-0.6:0.45;
+  fl.R.t=rAct?0.6:-0.45;
+  fl.L.a+=(fl.L.t-fl.L.a)*0.4;
+  fl.R.a+=(fl.R.t-fl.R.a)*0.4;
+
+  if(state.plunger.charging){
+    state.plunger.power=Math.min(state.plunger.power+2.5,100);
+    state.plunger.pct=state.plunger.power/100;
+  }
+  if(state.ballSaveTimer>0){state.ballSaveTimer--;if(state.ballSaveTimer===0)state.ballSave=false}
+  if(state.multiTimer>0){state.multiTimer--;if(state.multiTimer===0)state.multi=1}
+  if(state.comboTimer>0){state.comboTimer--;if(state.comboTimer===0)state.combo=0}
+  for(const r of state.ramps){if(r.cooldown>0)r.cooldown--}
+
+  const S=state.shake;
+  if(S>0)state.shake*=0.85;
+  if(state.shake<0.5)state.shake=0;
+
+  if(state.game!=='playing'||!state.ball)return;
+  const b=state.ball;
+
+  b.vy+=GRAVITY;
+  b.vx*=DAMPING;b.vy*=DAMPING;
+  b.x+=b.vx;b.y+=b.vy;
+  b.trail.push({x:b.x,y:b.y});
+  if(b.trail.length>10)b.trail.shift();
+
+  if(b.y+b.r>GH-8){
+    if(state.ballSave){b.y=GH-100;b.vy=-4;b.vx=(Math.random()-0.5)*3;state.ballSave=false;addFloat(GW/2,GH/2,'SALVO!','#00ff88');return}
+    sDrain();state.lives--;
+    addParticles(b.x,b.y,'#ff4444',25,5);state.shake=8;
+    if(state.lives<=0){state.game='over';b.trail=[];
+      if(state.score>state.hiScore){state.hiScore=state.score;localStorage.setItem(HS_KEY,String(state.hiScore))}
+      return;
     }
-    function sfx(freq, dur, type = 'square', vol = 0.12) {
-      try {
-        const a = getAudio(), o = a.createOscillator(), g = a.createGain()
-        o.type = type
-        o.frequency.setValueAtTime(freq, a.currentTime)
-        g.gain.setValueAtTime(vol, a.currentTime)
-        g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur)
-        o.connect(g); g.connect(a.destination)
-        o.start(); o.stop(a.currentTime + dur)
-      } catch(e) {}
-    }
-    function sBumper() { sfx(520, 0.12, 'square', 0.1) }
-    function sLaunch() { sfx(240, 0.2, 'sine', 0.15); setTimeout(() => sfx(360, 0.15, 'sine', 0.12), 100) }
-    function sFlipper() { sfx(180, 0.04, 'square', 0.06) }
-    function sDrain() { sfx(120, 0.4, 'sawtooth', 0.15) }
-    function sMulti() { sfx(660, 0.1, 'sine', 0.1); setTimeout(() => sfx(880, 0.1, 'sine', 0.1), 80); setTimeout(() => sfx(1100, 0.12, 'sine', 0.1), 160) }
+    freshBall();return;
+  }
 
-    const state = {
-      score: 0, hiScore: parseInt(localStorage.getItem(HS_KEY) || '0'),
-      lives: 3, game: 'launch', // launch, playing, over
-      shake: 0,
-      ball: null, balls: [],
-      fl: { L: { a: 0.45, t: 0.45, x: 100, y: H - 60 }, R: { a: -0.45, t: -0.45, x: W - 100, y: H - 60 } },
-      bumpers: [], pops: [], stars: [], coins: [], particles: [], floatTexts: [],
-      plunger: { pct: 0, charging: false, power: 0 },
-      kickback: false, multi: 1, multiTimer: 0, ballSave: false, ballSaveTimer: 0,
-      frame: 0,
-    }
+  if(b.x-b.r<25){b.x=b.r+25;b.vx=Math.abs(b.vx)*0.7}
+  if(b.x+b.r>GW-25){b.x=GW-b.r-25;b.vx=-Math.abs(b.vx)*0.7}
+  if(b.y-b.r<40){b.y=b.r+40;b.vy=Math.abs(b.vy)*0.7}
 
-    const WALLS = [
-      { x1: 24, y1: 40, x2: 24, y2: H - 80 },
-      { x1: W - 24, y1: 40, x2: W - 24, y2: H - 80 },
-      { x1: 24, y1: 40, x2: W - 24, y2: 40 },
-      { x1: 24, y1: H - 80, x2: 85, y2: H - 12 },
-      { x1: W - 24, y1: H - 80, x2: W - 85, y2: H - 12 },
-    ]
-    const LANE_WALLS = [
-      { x1: 24, y1: 40, x2: W - 24, y2: 40 },
-      { x1: 24, y1: 40, x2: 24, y2: H - 80 },
-      { x1: W - 24, y1: 40, x2: W - 24, y2: H - 80 },
-    ]
-
-    function setup() {
-      for (let r = 0; r < 3; r++)
-        for (let c = 0; c < 4; c++)
-          state.bumpers.push({
-            x: 75 + c * 70 + (r % 2) * 35, y: 90 + r * 65,
-            r: 20, pts: 100 + r * 50, hit: 0
-          })
-      for (let r = 0; r < 2; r++)
-        for (let c = 0; c < 3; c++)
-          state.pops.push({
-            x: 90 + c * 100 + (r % 2) * 50, y: 300 + r * 55,
-            r: 14, pts: 50, hit: 0
-          })
-      state.stars = [
-        { x: W / 2, y: 55, r: 12, active: true, timer: 0 },
-        { x: 50, y: 52, r: 10, active: true, timer: 0 },
-        { x: W - 50, y: 52, r: 10, active: true, timer: 0 },
-      ]
-    }
-    setup()
-
-    function resetBall() {
-      return { x: W / 2, y: H - 170, vx: (Math.random() - 0.5) * 1.5, vy: -6, r: BALL_R, trail: [] }
-    }
-
-    function freshBall() { state.ball = resetBall(); state.balls = [state.ball]; state.game = 'launch'; state.plunger.power = 0; state.plunger.pct = 0 }
-
-    function launch() {
-      if (state.game === 'launch' && state.lives > 0) {
-        const pwr = 4 + state.plunger.power * 0.06
-        state.ball.vy = -pwr
-        state.ball.vx = (Math.random() - 0.5) * 1.2
-        state.game = 'playing'
-        sLaunch()
-        state.ballSave = true; state.ballSaveTimer = 90
-      } else if (state.game === 'over') {
-        state.lives = 3; state.score = 0; state.multi = 1; state.multiTimer = 0
-        freshBall()
-        state.game = 'launch'
+  for(const w of WALLS){
+    const res=pointToSegDist(b.x,b.y,w.x1,w.y1,w.x2,w.y2);
+    if(res.d<b.r){
+      const dot=b.vx*res.nx+b.vy*res.ny;
+      if(dot<0){
+        b.vx-=2*dot*res.nx*0.85;b.vy-=2*dot*res.ny*0.85;
+        b.x+=res.nx*(b.r-res.d+1);b.y+=res.ny*(b.r-res.d+1);
       }
     }
+  }
 
-    function addParticles(x, y, color, count = 12, speed = 3) {
-      for (let i = 0; i < count; i++) {
-        const a = Math.random() * Math.PI * 2, s = Math.random() * speed + 1
-        state.particles.push({
-          x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1,
-          life: 1, decay: 0.015 + Math.random() * 0.02,
-          r: 2 + Math.random() * 3, color,
-        })
+  for(const s of state.slings){
+    const dx=s.x2-s.x1,dy=s.y2-s.y1;
+    const res=pointToSegDist(b.x,b.y,s.x1,s.y1,s.x2,s.y2);
+    if(res.d<b.r+3){
+      const nx=s.dir,ny=-0.5;
+      const dot=b.vx*nx+b.vy*ny;
+      if(dot<0){
+        b.vx-=2*dot*nx*1.5;b.vy-=2*dot*ny*1.5;
+        b.x+=nx*(b.r-res.d+2);b.y+=ny*(b.r-res.d+2);
+        state.score+=s.pts;s.hit=15;
+        sSlingshot();addParticles(s.x,s.y,'#00ffaa',10,4);
+        addFloat(s.x,s.y-20,`+${s.pts}`,'#00ffaa');
+        addCombo();
       }
     }
-    function addFloat(x, y, text, color = '#ffd700') {
-      state.floatTexts.push({ x, y, text, color, life: 1, vy: -1.5 })
+    if(s.hit>0)s.hit--;
+  }
+
+  for(const bumper of state.bumpers){
+    const c=collideCircle(b.x,b.y,b.r,bumper.x,bumper.y,bumper.r);
+    if(c.hit){
+      const dot=b.vx*c.nx+b.vy*c.ny;
+      if(dot<0){
+        b.vx-=2*dot*c.nx*1.5;b.vy-=2*dot*c.ny*1.5;
+        b.x=bumper.x+c.nx*(bumper.r+b.r+2);b.y=bumper.y+c.ny*(bumper.r+b.r+2);
+        const pts=Math.floor(bumper.pts*state.multi);
+        state.score+=pts;bumper.hit=20;
+        sBumper();addParticles(bumper.x,bumper.y,bumper.color,10,4);
+        addFloat(bumper.x,bumper.y-20,`+${pts}`,bumper.color);
+        state.shake=Math.max(state.shake,4);
+        addCombo();
+      }
     }
+    if(bumper.hit>0)bumper.hit--;
+  }
 
-    const KEYS = { left: false, right: false }
-    const TCH = { left: false, right: false, center: false }
-
-    window.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') { KEYS.left = true; e.preventDefault() }
-      if (e.key === 'ArrowRight' || e.key === 'd') { KEYS.right = true; e.preventDefault() }
-      if (e.key === ' ' || e.key === 'ArrowDown') { if (state.game === 'launch') { state.plunger.charging = true }; e.preventDefault() }
-    })
-    window.addEventListener('keyup', e => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') { KEYS.left = false; e.preventDefault() }
-      if (e.key === 'ArrowRight' || e.key === 'd') { KEYS.right = false; e.preventDefault() }
-      if (e.key === ' ' || e.key === 'ArrowDown') { state.plunger.charging = false; if (state.game === 'launch') { launch() }; e.preventDefault() }
-    })
-
-    canvas.addEventListener('touchstart', e => {
-      const t = e.touches[0]; if (!t) return
-      const r = canvas.getBoundingClientRect()
-      const x = t.clientX - r.left, w = r.width
-      const centerW = w * 0.3
-      if (x > (w - centerW) / 2 && x < (w + centerW) / 2) {
-        if (state.game === 'launch') { state.plunger.charging = true }
-        else TCH.center = true
-      } else {
-        TCH.left = x < w / 2; TCH.right = !TCH.left
-      }
-      if (state.game === 'over') launch()
-      e.preventDefault()
-    }, { passive: false })
-    canvas.addEventListener('touchend', e => {
-      if (state.plunger.charging) { state.plunger.charging = false; launch() }
-      TCH.left = false; TCH.right = false; TCH.center = false
-      e.preventDefault()
-    }, { passive: false })
-    canvas.addEventListener('touchmove', e => {
-      const t = e.touches[0]; if (!t) return
-      const r = canvas.getBoundingClientRect()
-      const x = t.clientX - r.left
-      TCH.left = x < r.width / 2; TCH.right = !TCH.left
-      e.preventDefault()
-    }, { passive: false })
-    canvas.addEventListener('mousedown', e => {
-      if (state.game === 'over') { launch(); return }
-      if (state.game === 'launch') { state.plunger.charging = true; return }
-    })
-    canvas.addEventListener('mouseup', e => {
-      if (state.plunger.charging) { state.plunger.charging = false; launch() }
-    })
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      state.lives = 3; state.score = 0; state.multi = 1; state.multiTimer = 0
-      state.particles = []; state.floatTexts = []
-      freshBall()
-    })
-
-    function flipperHit(fl, bx, by) {
-      const cos = Math.cos(fl.a), sin = Math.sin(fl.a)
-      const dx = bx - fl.x, dy = by - fl.y
-      const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos
-      const hw = FLIP_W / 2
-      if (lx >= -hw - 8 && lx <= hw + 8 && ly >= -FLIP_H / 2 - BALL_R && ly <= FLIP_H / 2 + BALL_R) {
-        if (ly > 0) return { hit: true, lx, push: lx / hw }
-      }
-      return { hit: false }
+  for(const target of state.targets){
+    if(!target.active)continue;
+    if(b.x>target.x&&b.x<target.x+target.w&&b.y+b.r>target.y&&b.y-b.r<target.y+target.h){
+      const pts=Math.floor(target.pts*state.multi);
+      state.score+=pts;target.active=false;target.hit=180;
+      sTarget();addParticles(target.x+target.w/2,target.y,'#ff00ff',15,5);
+      addFloat(target.x+target.w/2,target.y-15,`+${pts}`,'#ff00ff');
+      state.shake=Math.max(state.shake,3);
+      b.vy=-Math.abs(b.vy)*0.8;
+      addCombo();
     }
+    if(!target.active&&target.hit>0){target.hit--;if(target.hit===0)target.active=true}
+  }
 
-    function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1) }
-
-    function collideCircle(bx, by, br, cx, cy, cr) {
-      const d = dist(bx, by, cx, cy)
-      if (d < br + cr) {
-        const nx = (bx - cx) / d, ny = (by - cy) / d
-        return { hit: true, nx, ny, overlap: br + cr - d }
-      }
-      return { hit: false }
+  for(const lane of state.lanes){
+    if(!lane.active)continue;
+    const c=collideCircle(b.x,b.y,b.r,lane.x,lane.y,lane.r);
+    if(c.hit){
+      const pts=Math.floor(lane.pts*state.multi);
+      state.score+=pts;lane.active=false;lane.hit=240;
+      sTarget();addParticles(lane.x,lane.y,'#00ffff',8,3);
+      addFloat(lane.x,lane.y-15,`+${pts}`,'#00ffff');
+      b.vy=-Math.abs(b.vy)*0.6;
+      addCombo();
     }
+    if(!lane.active&&lane.hit>0){lane.hit--;if(lane.hit===0)lane.active=true}
+  }
 
-    function update() {
-      state.frame++
-      const fl = state.fl
-      const lAct = KEYS.left || TCH.left
-      const rAct = KEYS.right || TCH.right
-      if (lAct !== (fl.L.t === -0.5)) { if (lAct) sFlipper() }
-      if (rAct !== (fl.R.t === 0.5)) { if (rAct) sFlipper() }
-      fl.L.t = lAct ? -0.5 : 0.45
-      fl.R.t = rAct ? 0.5 : -0.45
-      fl.L.a += (fl.L.t - fl.L.a) * 0.35
-      fl.R.a += (fl.R.t - fl.R.a) * 0.35
-
-      if (state.plunger.charging) {
-        state.plunger.power = Math.min(state.plunger.power + 3, 100)
-        state.plunger.pct = state.plunger.power / 100
-      }
-
-      if (state.ballSaveTimer > 0) { state.ballSaveTimer--; if (state.ballSaveTimer === 0) state.ballSave = false }
-      if (state.multiTimer > 0) { state.multiTimer--; if (state.multiTimer === 0) state.multi = 1 }
-
-      if (state.game !== 'playing' || !state.ball) return
-
-      const b = state.ball
-      b.vy += 0.14
-      b.vx *= 0.995; b.vy *= 0.995
-      b.x += b.vx; b.y += b.vy
-      b.trail.push({ x: b.x, y: b.y })
-      if (b.trail.length > 8) b.trail.shift()
-
-      const S = state.shake
-      if (S > 0) state.shake *= 0.85
-      if (state.shake < 0.5) state.shake = 0
-
-      if (b.y + b.r > H - 14) {
-        if (state.ballSave) { b.y = H - 100; b.vy = -3; b.vx = (Math.random() - 0.5) * 2; state.ballSave = false; addFloat(W/2, H/2, 'SALVO!', '#00ff88'); return }
-        sDrain()
-        state.lives--
-        addParticles(b.x, b.y, '#ff4444', 20, 4); state.shake = 6
-        if (state.lives <= 0) { state.game = 'over'; b.trail = []; return }
-        freshBall()
-        return
-      }
-
-      if (b.x - b.r < 5) { b.x = b.r + 5; b.vx = Math.abs(b.vx) * 0.7 }
-      if (b.x + b.r > W - 5) { b.x = W - b.r - 5; b.vx = -Math.abs(b.vx) * 0.7 }
-      if (b.y - b.r < 35) { b.y = b.r + 35; b.vy = Math.abs(b.vy) * 0.7 }
-
-      for (const w of WALLS) {
-        const dx = w.x2 - w.x1, dy = w.y2 - w.y1, len = Math.hypot(dx, dy)
-        const nx = -dy / len, ny = dx / len
-        const d = (b.x - w.x1) * nx + (b.y - w.y1) * ny
-        if (Math.abs(d) < b.r) {
-          const t = ((b.x - w.x1) * dx + (b.y - w.y1) * dy) / (len * len)
-          if (t >= 0 && t <= 1) {
-            const dot = b.vx * nx + b.vy * ny
-            if (dot < 0) {
-              b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny
-              b.vx *= 0.92; b.vy *= 0.92
-              b.x += nx * (b.r - Math.abs(d) + 1)
-              b.y += ny * (b.r - Math.abs(d) + 1)
-            }
-          }
+  for(const ramp of state.ramps){
+    if(ramp.cooldown>0)continue;
+    const rdx=ramp.x2-ramp.x1,rdy=ramp.y2-ramp.y1;
+    const rlen=Math.hypot(rdx,rdy);
+    const rnx=-rdy/rlen,rny=rdx/rlen;
+    const d=(b.x-ramp.x1)*rnx+(b.y-ramp.y1)*rny;
+    if(Math.abs(d)<b.r+6){
+      const t=((b.x-ramp.x1)*rdx+(b.y-ramp.y1)*rdy)/(rlen*rlen);
+      if(t>=0&&t<=1){
+        const dot=b.vx*rnx+b.vy*rny;
+        if(dot<0&&Math.hypot(b.vx,b.vy)>5){
+          const pts=Math.floor(ramp.pts*state.multi);
+          state.score+=pts;ramp.hit=15;ramp.cooldown=90;
+          b.vx=rnx*12;b.vy=rny*12-4;
+          sRamp();addParticles(ramp.x2,ramp.y2,'#ff44ff',20,6);
+          addFloat(ramp.x2,ramp.y2-20,`+${pts} RAMP!`,'#ff44ff');
+          state.shake=5;state.multi=Math.min(state.multi+0.5,5);state.multiTimer=600;
+          addFloat(GW/2,GH/2-80,`x${state.multi.toFixed(1)}`,'#ffd700');
+          addCombo();
         }
       }
-
-      for (const bumper of state.bumpers) {
-        const c = collideCircle(b.x, b.y, b.r, bumper.x, bumper.y, bumper.r)
-        if (c.hit) {
-          const dot = b.vx * c.nx + b.vy * c.ny
-          if (dot < 0) {
-            b.vx -= 2 * dot * c.nx * 1.4; b.vy -= 2 * dot * c.ny * 1.4
-            b.x = bumper.x + c.nx * (bumper.r + b.r + 2)
-            b.y = bumper.y + c.ny * (bumper.r + b.r + 2)
-            const pts = Math.floor(bumper.pts * state.multi)
-            state.score += pts; bumper.hit = 20
-            sBumper(); addParticles(bumper.x, bumper.y, '#ff8800', 8, 3)
-            addFloat(bumper.x, bumper.y - 15, `+${pts}`, '#ffcc00')
-            state.shake = Math.max(state.shake, 2)
-          }
-        }
-        if (bumper.hit > 0) bumper.hit--
-      }
-
-      for (const pop of state.pops) {
-        const c = collideCircle(b.x, b.y, b.r, pop.x, pop.y, pop.r)
-        if (c.hit) {
-          const dot = b.vx * c.nx + b.vy * c.ny
-          if (dot < 0) {
-            b.vx -= 2 * dot * c.nx * 1.2; b.vy -= 2 * dot * c.ny * 1.2
-            b.x = pop.x + c.nx * (pop.r + b.r + 1)
-            b.y = pop.y + c.ny * (pop.r + b.r + 1)
-            const pts = Math.floor(pop.pts * state.multi)
-            state.score += pts; pop.hit = 15
-            sfx(300 + Math.random() * 200, 0.06, 'sine', 0.06)
-            addParticles(pop.x, pop.y, '#00ddff', 6, 2)
-          }
-        }
-        if (pop.hit > 0) pop.hit--
-      }
-
-      for (const star of state.stars) {
-        if (!star.active) continue
-        const c = collideCircle(b.x, b.y, b.r, star.x, star.y, star.r)
-        if (c.hit) {
-          star.active = false; star.timer = 300
-          state.multi = Math.min(state.multi + 0.5, 5); state.multiTimer = 600
-          state.score += 250
-          sMulti()
-          addParticles(star.x, star.y, '#ffd700', 20, 5)
-          addFloat(star.x, star.y - 20, `x${state.multi}`, '#ffd700')
-          state.shake = 3
-          const dot = b.vx * c.nx + b.vy * c.ny
-          if (dot < 0) { b.vx -= 2 * dot * c.nx; b.vy -= 2 * dot * c.ny }
-          b.x = star.x + c.nx * (star.r + b.r + 1)
-          b.y = star.y + c.ny * (star.r + b.r + 1)
-        }
-      }
-      for (const star of state.stars) {
-        if (!star.active && star.timer > 0) { star.timer--; if (star.timer === 0) star.active = true }
-      }
-
-      const speed = Math.hypot(b.vx, b.vy)
-      if (speed > 14) { b.vx = (b.vx / speed) * 14; b.vy = (b.vy / speed) * 14 }
     }
+    if(ramp.hit>0)ramp.hit--;
+  }
 
-    function draw() {
-      ctx.save()
-      if (state.shake > 0.5) {
-        const sx = (Math.random() - 0.5) * state.shake * 2
-        const sy = (Math.random() - 0.5) * state.shake * 2
-        ctx.translate(sx, sy)
-      }
-
-      const bg = ctx.createRadialGradient(W / 2, H / 2, 100, W / 2, H / 2, 500)
-      bg.addColorStop(0, '#12123a'); bg.addColorStop(0.5, '#0a0a2e'); bg.addColorStop(1, '#050520')
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
-
-      for (let i = 0; i < 30; i++) {
-        const sx = (i * 137 + 50) % W, sy = (i * 97 + 30) % H
-        ctx.fillStyle = `rgba(255,255,255,${0.03 + Math.sin(state.frame * 0.02 + i) * 0.02})`
-        ctx.beginPath(); ctx.arc(sx, sy, 1, 0, Math.PI * 2); ctx.fill()
-      }
-
-      ctx.shadowColor = '#00c8ff'; ctx.shadowBlur = 15
-      ctx.strokeStyle = '#00c8ff'; ctx.lineWidth = 3
-      ctx.shadowBlur = 25
-      ctx.beginPath(); ctx.roundRect(10, 30, W - 20, H - 80, 12); ctx.stroke()
-      ctx.shadowBlur = 0
-
-      for (const w of WALLS) {
-        ctx.strokeStyle = '#ff6644'; ctx.lineWidth = 4; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 8
-        ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke()
-        ctx.shadowBlur = 0
-      }
-
-      const fl = state.fl
-      for (const side of ['L', 'R']) {
-        const f = fl[side]
-        ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a)
-        ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 20
-        const grd = ctx.createLinearGradient(-FLIP_W / 2, 0, FLIP_W / 2, 0)
-        grd.addColorStop(0, '#ff2222'); grd.addColorStop(0.5, '#ff6644'); grd.addColorStop(1, '#ff2222')
-        ctx.fillStyle = grd
-        ctx.beginPath()
-        ctx.moveTo(-FLIP_W / 2, -FLIP_R)
-        ctx.quadraticCurveTo(-FLIP_W / 2 - 10, 0, -FLIP_W / 2, FLIP_R)
-        ctx.lineTo(FLIP_W / 2, FLIP_R)
-        ctx.quadraticCurveTo(FLIP_W / 2 + 10, 0, FLIP_W / 2, -FLIP_R)
-        ctx.closePath(); ctx.fill()
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke()
-        ctx.shadowBlur = 0; ctx.restore()
-      }
-
-      for (const bumper of state.bumpers) {
-        const isHit = bumper.hit > 0
-        ctx.shadowColor = isHit ? '#ffff00' : '#ff8800'
-        ctx.shadowBlur = isHit ? 35 : 18
-        const bg = ctx.createRadialGradient(bumper.x - 4, bumper.y - 4, 2, bumper.x, bumper.y, bumper.r + 4)
-        if (isHit) { bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#ff0'); bg.addColorStop(1, '#f80') }
-        else { bg.addColorStop(0, '#fc0'); bg.addColorStop(0.4, '#f80'); bg.addColorStop(1, '#c40') }
-        ctx.fillStyle = bg
-        ctx.beginPath(); ctx.arc(bumper.x, bumper.y, bumper.r + 2, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke()
-        ctx.shadowBlur = 0
-        ctx.fillStyle = isHit ? '#fff' : '#ffd700'
-        ctx.font = 'bold 12px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(bumper.pts, bumper.x, bumper.y)
-      }
-
-      for (const pop of state.pops) {
-        const isHit = pop.hit > 0
-        ctx.shadowColor = isHit ? '#00eeff' : '#0088cc'
-        ctx.shadowBlur = isHit ? 25 : 12
-        ctx.fillStyle = isHit ? '#88eeff' : '#2266aa'
-        ctx.beginPath(); ctx.arc(pop.x, pop.y, pop.r, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = '#00ccff'; ctx.lineWidth = 2; ctx.stroke()
-        ctx.shadowBlur = 0
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(pop.pts, pop.x, pop.y + 1)
-      }
-
-      for (const star of state.stars) {
-        if (!star.active) continue
-        const pulse = 1 + Math.sin(state.frame * 0.05) * 0.15
-        ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 25
-        ctx.fillStyle = '#ffd700'
-        ctx.beginPath(); ctx.arc(star.x, star.y, star.r * pulse, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = '#fff'
-        ctx.font = 'bold 14px sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText('★', star.x, star.y + 1)
-        ctx.shadowBlur = 0
-        ctx.fillStyle = 'rgba(255,215,0,0.3)'
-        ctx.font = '10px "Press Start 2P", monospace'
-        ctx.fillText('MULTI', star.x, star.y + star.r + 14)
-      }
-
-      if (state.ball) {
-        const b = state.ball
-        for (let i = 0; i < b.trail.length; i++) {
-          const t = b.trail[i], a = i / b.trail.length
-          ctx.fillStyle = `rgba(0,255,136,${a * 0.3})`
-          ctx.beginPath(); ctx.arc(t.x, t.y, b.r * a * 0.6, 0, Math.PI * 2); ctx.fill()
-        }
-        if (state.game === 'playing' || state.game === 'launch') {
-          ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 25
-          const bg = ctx.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, b.r + 2)
-          bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#8fc'); bg.addColorStop(1, '#0f8')
-          ctx.fillStyle = bg
-          ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 1, 0, Math.PI * 2); ctx.fill()
-          ctx.shadowBlur = 0
-        }
-      }
-
-      for (const p of state.particles) {
-        ctx.globalAlpha = p.life
-        ctx.fillStyle = p.color
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill()
-      }
-      ctx.globalAlpha = 1
-
-      for (const ft of state.floatTexts) {
-        ctx.globalAlpha = ft.life
-        ctx.fillStyle = ft.color
-        ctx.font = 'bold 16px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4
-        ctx.fillText(ft.text, ft.x, ft.y)
-        ctx.shadowBlur = 0
-      }
-      ctx.globalAlpha = 1
-
-      if (state.game === 'launch' && state.lives > 0) {
-        const px = W / 2, py = H - 80
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.roundRect(px - 6, py - 50, 12, 60, 6); ctx.fill()
-        const fillPct = state.plunger.pct
-        const fh = 56 * fillPct
-        ctx.fillStyle = '#ff6644'; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 10
-        ctx.beginPath(); ctx.roundRect(px - 4, py + 4 - fh, 8, fh, 4); ctx.fill()
-        ctx.shadowBlur = 0
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
-        ctx.beginPath(); ctx.roundRect(px - 6, py - 50, 12, 60, 6); ctx.stroke()
-
-        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect(W/2-110, H/2-30, 220, 60, 12); ctx.fill()
-        ctx.fillStyle = '#00ff88'
-        ctx.font = 'bold 20px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText('SEGURE PARA LANÇAR', W / 2, H / 2)
-      }
-
-      ctx.fillStyle = '#fff'
-      ctx.font = 'bold 16px "Fredoka One", sans-serif'
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
-      ctx.fillText(`SCORE: ${state.score}`, 14, 5)
-      ctx.textAlign = 'right'
-      ctx.fillText(`HI: ${state.hiScore}`, W - 14, 5)
-      ctx.shadowBlur = 0
-      ctx.textAlign = 'left'; ctx.fillText(`×${state.multi.toFixed(1)}`, 14, 24)
-
-      let ls = ''
-      for (let i = 0; i < state.lives; i++) ls += '\u{1F7E2}'
-      for (let i = state.lives; i < 3; i++) ls += '\u{26AB}'
-      ctx.textAlign = 'right'
-      ctx.font = '14px sans-serif'
-      ctx.fillText(ls, W - 14, 6)
-
-      if (state.ballSave) {
-        ctx.fillStyle = `rgba(0,255,136,${0.3 + Math.sin(state.frame * 0.1) * 0.2})`
-        ctx.font = '10px "Press Start 2P", monospace'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-        ctx.fillText('BALL SAVE', W / 2, H - 5)
-      }
-
-      if (state.game === 'over') {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H)
-        const isNew = state.score > state.hiScore
-        if (isNew) { state.hiScore = state.score; localStorage.setItem(HS_KEY, String(state.hiScore)) }
-        ctx.fillStyle = '#ff4444'; ctx.font = 'bold 36px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 20
-        ctx.fillText('GAME OVER', W / 2, H / 2 - 40)
-        ctx.shadowBlur = 0
-        if (isNew) {
-          ctx.fillStyle = '#ffd700'
-          ctx.font = 'bold 18px "Press Start 2P", monospace'
-          ctx.fillText('★ NOVO RECORDE! ★', W / 2, H / 2 + 10)
-        }
-        ctx.fillStyle = '#00ff88'
-        ctx.font = 'bold 22px "Fredoka One", sans-serif'
-        ctx.fillText(`SCORE: ${state.score}`, W / 2, H / 2 + 50)
-        ctx.fillStyle = 'rgba(255,255,255,0.5)'
-        ctx.font = '14px "Fredoka One", sans-serif'
-        ctx.fillText(`Melhor: ${state.hiScore}`, W / 2, H / 2 + 80)
-        ctx.fillStyle = '#ffd700'
-        ctx.font = '14px "Press Start 2P", monospace'
-        ctx.fillText('TOQUE PARA JOGAR', W / 2, H / 2 + 125)
-      }
-
-      ctx.restore()
+  for(const star of state.stars){
+    if(!star.active)continue;
+    const c=collideCircle(b.x,b.y,b.r,star.x,star.y,star.r);
+    if(c.hit){
+      star.active=false;star.timer=360;
+      state.multi=Math.min(state.multi+0.5,5);state.multiTimer=600;
+      state.score+=500;sMulti();
+      addParticles(star.x,star.y,'#ffd700',25,6);
+      addFloat(star.x,star.y-25,`x${state.multi.toFixed(1)}`,'#ffd700');
+      state.shake=4;
+      const dot=b.vx*c.nx+b.vy*c.ny;
+      if(dot<0){b.vx-=2*dot*c.nx;b.vy-=2*dot*c.ny}
+      b.x=star.x+c.nx*(star.r+b.r+1);b.y=star.y+c.ny*(star.r+b.r+1);
     }
+  }
+  for(const star of state.stars){
+    if(!star.active&&star.timer>0){star.timer--;if(star.timer===0)star.active=true}
+  }
 
-    function updateParticles() {
-      for (const p of state.particles) {
-        p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.decay
-      }
-      state.particles = state.particles.filter(p => p.life > 0)
-      for (const ft of state.floatTexts) {
-        ft.y += ft.vy; ft.life -= 0.018
-      }
-      state.floatTexts = state.floatTexts.filter(ft => ft.life > 0)
-    }
+  const speed=Math.hypot(b.vx,b.vy);
+  if(speed>MAX_SPEED){b.vx=(b.vx/speed)*MAX_SPEED;b.vy=(b.vy/speed)*MAX_SPEED}
+}
 
-    function loop() {
-      update()
-      updateParticles()
-      draw()
-      requestAnimationFrame(loop)
+function draw(){
+  ctx.save();
+  ctx.scale(SCALE,SCALE);
+
+  if(state.shake>0.5){
+    const sx=(Math.random()-0.5)*state.shake*2;
+    const sy=(Math.random()-0.5)*state.shake*2;
+    ctx.translate(sx,sy);
+  }
+
+  const bg=ctx.createRadialGradient(GW/2,GH/2,50,GW/2,GH/2,400);
+  bg.addColorStop(0,'#1a1a4a');bg.addColorStop(0.5,'#0d0d30');bg.addColorStop(1,'#050518');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,GW,GH);
+
+  for(let i=0;i<40;i++){
+    const sx=(i*137+50)%GW,sy=(i*97+30)%GH;
+    ctx.fillStyle=`rgba(255,255,255,${0.03+Math.sin(state.frame*0.02+i)*0.02})`;
+    ctx.beginPath();ctx.arc(sx,sy,1,0,Math.PI*2);ctx.fill();
+  }
+
+  ctx.shadowColor='#00c8ff';ctx.shadowBlur=20;
+  ctx.strokeStyle='#00c8ff';ctx.lineWidth=3;
+  ctx.beginPath();ctx.roundRect(15,35,GW-30,GH-80,10);ctx.stroke();
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle='#111128';ctx.beginPath();ctx.roundRect(15,35,GW-30,GH-80,10);ctx.fill();
+
+  for(const w of WALLS){
+    ctx.strokeStyle='#ff5533';ctx.lineWidth=5;ctx.shadowColor='#ff3311';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.moveTo(w.x1,w.y1);ctx.lineTo(w.x2,w.y2);ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+
+  for(const s of state.slings){
+    const glow=s.hit>0;
+    ctx.strokeStyle=glow?'#00ffaa':'#008866';ctx.lineWidth=4;
+    ctx.shadowColor=glow?'#00ffaa':'#005544';ctx.shadowBlur=glow?20:8;
+    ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();
+    ctx.shadowBlur=0;
+    if(glow){
+      ctx.fillStyle=`rgba(0,255,170,${s.hit/15*0.3})`;
+      ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.lineTo(s.x,s.y);ctx.closePath();ctx.fill();
     }
-    freshBall()
-    loop()
+  }
+
+  const fl=state.fl;
+  for(const side of['L','R']){
+    const f=fl[side];
+    ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a);
+    ctx.shadowColor='#ff2222';ctx.shadowBlur=25;
+    const grd=ctx.createLinearGradient(-FLIP_W/2,0,FLIP_W/2,0);
+    grd.addColorStop(0,'#cc1111');grd.addColorStop(0.3,'#ff4444');grd.addColorStop(0.7,'#ff4444');grd.addColorStop(1,'#cc1111');
+    ctx.fillStyle=grd;
+    ctx.beginPath();
+    ctx.moveTo(-FLIP_W/2,-FLIP_R);
+    ctx.quadraticCurveTo(-FLIP_W/2-12,0,-FLIP_W/2,FLIP_R);
+    ctx.lineTo(FLIP_W/2-8,FLIP_R-2);
+    ctx.quadraticCurveTo(FLIP_W/2+5,0,FLIP_W/2-8,-FLIP_R+2);
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#ffaaaa';ctx.lineWidth=2;ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  for(const bumper of state.bumpers){
+    const isHit=bumper.hit>0;
+    ctx.shadowColor=isHit?'#ffffff':bumper.color;
+    ctx.shadowBlur=isHit?40:20;
+    const grd=ctx.createRadialGradient(bumper.x-4,bumper.y-4,2,bumper.x,bumper.y,bumper.r+4);
+    if(isHit){
+      grd.addColorStop(0,'#ffffff');grd.addColorStop(0.3,'#ffffaa');grd.addColorStop(1,bumper.color);
+    }else{
+      grd.addColorStop(0,'#ffeecc');grd.addColorStop(0.4,bumper.color);grd.addColorStop(1,'#882200');
+    }
+    ctx.fillStyle=grd;
+    ctx.beginPath();ctx.arc(bumper.x,bumper.y,bumper.r+2,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle=isHit?'#fff':'#ffd700';
+    ctx.font='bold 12px "Fredoka One",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(bumper.pts,bumper.x,bumper.y);
+  }
+
+  for(const target of state.targets){
+    const glow=target.hit>0;
+    ctx.fillStyle=glow?'#ff00ff':'#aa00aa';
+    ctx.shadowColor=glow?'#ff00ff':'#660066';ctx.shadowBlur=glow?25:8;
+    ctx.beginPath();ctx.roundRect(target.x,target.y,target.w,target.h,3);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.font='bold 8px "Fredoka One",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(target.pts,target.x+target.w/2,target.y+target.h/2);
+  }
+
+  for(const lane of state.lanes){
+    const glow=lane.hit>0;
+    ctx.fillStyle=glow?'#00ffff':'#006688';
+    ctx.shadowColor=glow?'#00ffff':'#003344';ctx.shadowBlur=glow?25:10;
+    ctx.beginPath();ctx.arc(lane.x,lane.y,lane.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#00ccff';ctx.lineWidth=2;ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.font='bold 7px "Fredoka One",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(lane.pts,lane.x,lane.y);
+  }
+
+  for(const ramp of state.ramps){
+    const glow=ramp.hit>0;
+    ctx.strokeStyle=glow?'#ff44ff':'#884488';ctx.lineWidth=6;
+    ctx.shadowColor=glow?'#ff44ff':'#442244';ctx.shadowBlur=glow?25:8;
+    ctx.beginPath();ctx.moveTo(ramp.x1,ramp.y1);ctx.lineTo(ramp.x2,ramp.y2);ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,68,255,0.3)';
+    ctx.font='9px "Press Start 2P",monospace';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('RAMP',ramp.x1+(ramp.x2-ramp.x1)/2,ramp.y1+(ramp.y2-ramp.y1)/2-10);
+  }
+
+  for(const star of state.stars){
+    if(!star.active)continue;
+    const pulse=1+Math.sin(state.frame*0.05)*0.15;
+    ctx.shadowColor='#ffd700';ctx.shadowBlur=30;
+    ctx.fillStyle='#ffd700';
+    ctx.beginPath();ctx.arc(star.x,star.y,star.r*pulse,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.font='bold 16px sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('★',star.x,star.y+1);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,215,0,0.4)';
+    ctx.font='10px "Press Start 2P",monospace';
+    ctx.fillText('MULTI',star.x,star.y+star.r+14);
+  }
+
+  if(state.ball){
+    const b=state.ball;
+    for(let i=0;i<b.trail.length;i++){
+      const t=b.trail[i],a=i/b.trail.length;
+      ctx.fillStyle=`rgba(0,200,255,${a*0.25})`;
+      ctx.beginPath();ctx.arc(t.x,t.y,b.r*a*0.5,0,Math.PI*2);ctx.fill();
+    }
+    if(state.game==='playing'||state.game==='launch'){
+      ctx.shadowColor='#00ccff';ctx.shadowBlur=30;
+      const grd=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,b.r+3);
+      grd.addColorStop(0,'#ffffff');grd.addColorStop(0.2,'#aaddff');grd.addColorStop(0.6,'#44aaff');grd.addColorStop(1,'#0066cc');
+      ctx.fillStyle=grd;
+      ctx.beginPath();ctx.arc(b.x,b.y,b.r+1,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,255,255,0.6)';
+      ctx.beginPath();ctx.arc(b.x-2,b.y-2,2,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  for(const p of state.particles){
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  for(const ft of state.floatTexts){
+    ctx.globalAlpha=ft.life;
+    ctx.fillStyle=ft.color;
+    ctx.font='bold 14px "Fredoka One",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,0.7)';ctx.shadowBlur=4;
+    ctx.fillText(ft.text,ft.x,ft.y);
+    ctx.shadowBlur=0;
+  }
+  ctx.globalAlpha=1;
+
+  if(state.game==='launch'&&state.lives>0){
+    const px=GW-40,py=GH-120;
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.beginPath();ctx.roundRect(px-8,py-60,16,70,6);ctx.fill();
+    const fh=64*state.plunger.pct;
+    const pgrd=ctx.createLinearGradient(0,py+6-fh,0,py+6);
+    pgrd.addColorStop(0,'#ff2222');pgrd.addColorStop(0.5,'#ff6644');pgrd.addColorStop(1,'#ffaa00');
+    ctx.fillStyle=pgrd;ctx.shadowColor='#ff4444';ctx.shadowBlur=12;
+    ctx.beginPath();ctx.roundRect(px-6,py+6-fh,12,fh,4);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(px-8,py-60,16,70,6);ctx.stroke();
+
+    ctx.fillStyle='rgba(0,0,0,0.65)';
+    ctx.beginPath();ctx.roundRect(GW/2-120,GH/2-35,240,70,14);ctx.fill();
+    ctx.strokeStyle='rgba(0,200,255,0.3)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(GW/2-120,GH/2-35,240,70,14);ctx.stroke();
+    ctx.fillStyle='#00ffaa';
+    ctx.font='bold 18px "Fredoka One",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('SEGURE PARA LANÇAR',GW/2,GH/2-5);
+
+    if(state.skillShotActive){
+      ctx.fillStyle='#ffd700';
+      ctx.font='10px "Press Start 2P",monospace';
+      ctx.fillText('★ SKILL SHOT ★',GW/2,GH/2+20);
+    }
+  }
+
+  ctx.fillStyle='#fff';
+  ctx.font='bold 16px "Fredoka One",sans-serif';
+  ctx.textAlign='left';ctx.textBaseline='top';
+  ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=4;
+  ctx.fillText(`SCORE: ${state.score}`,18,8);
+  ctx.textAlign='right';
+  ctx.fillText(`HI: ${state.hiScore}`,GW-18,8);
+  ctx.shadowBlur=0;
+
+  ctx.textAlign='left';
+  ctx.fillStyle='#ffd700';
+  ctx.font='bold 12px "Fredoka One",sans-serif';
+  ctx.fillText(`×${state.multi.toFixed(1)}`,18,28);
+
+  if(state.combo>=2){
+    ctx.fillStyle='#ff44ff';
+    ctx.font='bold 10px "Press Start 2P",monospace';
+    ctx.fillText(`COMBO x${state.combo}`,18,44);
+  }
+
+  let ls='';
+  for(let i=0;i<state.lives;i++)ls+='●';
+  for(let i=state.lives;i<3;i++)ls+='○';
+  ctx.textAlign='right';ctx.font='16px sans-serif';
+  ctx.fillStyle='#00ff88';ctx.fillText(ls,GW-18,28);
+
+  if(state.ballSave){
+    ctx.fillStyle=`rgba(0,255,136,${0.4+Math.sin(state.frame*0.12)*0.3})`;
+    ctx.font='10px "Press Start 2P",monospace';
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.fillText('BALL SAVE',GW/2,GH-3);
+  }
+
+  if(state.game==='over'){
+    ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(0,0,GW,GH);
+    const isNew=state.score>state.hiScore;
+    if(isNew){state.hiScore=state.score;localStorage.setItem(HS_KEY,String(state.hiScore))}
+    ctx.fillStyle='#ff2222';ctx.font='bold 32px "Fredoka One",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.shadowColor='#ff0000';ctx.shadowBlur=25;
+    ctx.fillText('GAME OVER',GW/2,GH/2-50);
+    ctx.shadowBlur=0;
+    if(isNew){
+      ctx.fillStyle='#ffd700';ctx.font='bold 16px "Press Start 2P",monospace';
+      ctx.fillText('★ NOVO RECORDE! ★',GW/2,GH/2);
+    }
+    ctx.fillStyle='#00ff88';ctx.font='bold 20px "Fredoka One",sans-serif';
+    ctx.fillText(`SCORE: ${state.score}`,GW/2,GH/2+40);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='13px "Fredoka One",sans-serif';
+    ctx.fillText(`Melhor: ${state.hiScore}`,GW/2,GH/2+70);
+    ctx.fillStyle='#ffd700';ctx.font='12px "Press Start 2P",monospace';
+    ctx.fillText('TOQUE PARA JOGAR',GW/2,GH/2+110);
+  }
+
+  ctx.restore();
+}
+
+function updateParticles(){
+  for(const p of state.particles){p.x+=p.vx;p.y+=p.vy;p.vy+=0.04;p.life-=p.decay}
+  state.particles=state.particles.filter(p=>p.life>0);
+  for(const ft of state.floatTexts){ft.y+=ft.vy;ft.life-=0.016}
+  state.floatTexts=state.floatTexts.filter(ft=>ft.life>0);
+}
+
+function loop(){
+  update();updateParticles();draw();
+  requestAnimationFrame(loop);
+}
+freshBall();loop();
+
+})();
   </script>
 </body>
 </html>
