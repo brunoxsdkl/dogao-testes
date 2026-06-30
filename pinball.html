@@ -40,560 +40,551 @@
   </div>
   <script>
     const HS_KEY = 'pinball_megadogao_hs'
-    const canvas = document.getElementById('c')
-    const ctx = canvas.getContext('2d')
+    const C = document.getElementById('c')
+    const X = C.getContext('2d')
     const W = 400, H = 680
-    canvas.width = W
-    canvas.height = H
+    C.width = W; C.height = H
 
     const BALL_R = 7
-    const FLIP_W = 200, FLIP_H = 14, FLIP_R = 18
+    const FLIP_LEN = 140
+    const FLIP_W = 16
+    const GRAV = 0.12
+    const DRAIN_Y = H - 16
 
     let actx = null
-    function getAudio() {
+    function audio() {
       if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
       if (actx.state === 'suspended') actx.resume()
       return actx
     }
-    function sfx(freq, dur, type = 'square', vol = 0.12) {
+    function sfx(f, d, t='square', v=0.12) {
       try {
-        const a = getAudio(), o = a.createOscillator(), g = a.createGain()
-        o.type = type
-        o.frequency.setValueAtTime(freq, a.currentTime)
-        g.gain.setValueAtTime(vol, a.currentTime)
-        g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur)
-        o.connect(g); g.connect(a.destination)
-        o.start(); o.stop(a.currentTime + dur)
+        const a = audio(), o = a.createOscillator(), g = a.createGain()
+        o.type = t; o.frequency.setValueAtTime(f, a.currentTime)
+        g.gain.setValueAtTime(v, a.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + d)
+        o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d)
       } catch(e) {}
     }
-    function sBumper() { sfx(520, 0.12, 'square', 0.1) }
-    function sLaunch() { sfx(240, 0.2, 'sine', 0.15); setTimeout(() => sfx(360, 0.15, 'sine', 0.12), 100) }
-    function sFlipper() { sfx(180, 0.04, 'square', 0.06) }
-    function sDrain() { sfx(120, 0.4, 'sawtooth', 0.15) }
-    function sMulti() { sfx(660, 0.1, 'sine', 0.1); setTimeout(() => sfx(880, 0.1, 'sine', 0.1), 80); setTimeout(() => sfx(1100, 0.12, 'sine', 0.1), 160) }
+    const SFX = {
+      bumper: ()=>sfx(520,0.12,'square',0.1),
+      launch: ()=>{sfx(240,0.2,'sine',0.15);setTimeout(()=>sfx(360,0.15,'sine',0.12),100)},
+      flipper: ()=>sfx(180,0.04,'square',0.06),
+      drain: ()=>sfx(120,0.4,'sawtooth',0.15),
+      multi: ()=>{sfx(660,0.1,'sine',0.1);setTimeout(()=>sfx(880,0.1,'sine',0.1),80);setTimeout(()=>sfx(1100,0.12,'sine',0.1),160)},
+      target: ()=>sfx(440,0.08,'sine',0.1),
+    }
 
-    const state = {
-      score: 0, hiScore: parseInt(localStorage.getItem(HS_KEY) || '0'),
-      lives: 3, game: 'launch', // launch, playing, over
-      shake: 0,
-      ball: null, balls: [],
-      fl: { L: { a: 0.45, t: 0.45, x: 95, y: H - 60 }, R: { a: -0.45, t: -0.45, x: 305, y: H - 60 } },
-      bumpers: [], pops: [], stars: [], coins: [], particles: [], floatTexts: [],
+    const S = {
+      score: 0, hiScore: parseInt(localStorage.getItem(HS_KEY)||'0'),
+      lives: 3, phase: 'launch',
+      shake: 0, frame: 0,
+      ball: null,
+      fl: {
+        L: { a: 0.45, t: 0.45, x: 55, y: H-70 },
+        R: { a: Math.PI-0.45, t: Math.PI-0.45, x: 345, y: H-70 }
+      },
+      bumpers: [], pops: [], targets: [], stars: [],
+      particles: [], floatTexts: [],
       plunger: { pct: 0, charging: false, power: 0 },
-      kickback: false, multi: 1, multiTimer: 0, ballSave: false, ballSaveTimer: 0,
-      frame: 0,
+      multi: 1, multiTimer: 0, ballSave: false, ballSaveTimer: 0,
     }
 
     const WALLS = [
-      { x1: 24, y1: 40, x2: 24, y2: H - 80 },
-      { x1: W - 24, y1: 40, x2: W - 24, y2: H - 80 },
-      { x1: 24, y1: 40, x2: W - 24, y2: 40 },
-      { x1: 24, y1: H - 80, x2: 85, y2: H - 12 },
-      { x1: W - 24, y1: H - 80, x2: W - 85, y2: H - 12 },
+      { x1: 24, y1: 40, x2: 24, y2: H-85 },
+      { x1: W-24, y1: 40, x2: W-24, y2: H-85 },
+      { x1: 24, y1: 40, x2: W-24, y2: 40 },
+      { x1: 24, y1: H-85, x2: 90, y2: H-12 },
+      { x1: W-24, y1: H-85, x2: W-90, y2: H-12 },
     ]
-    const LANE_WALLS = [
-      { x1: 24, y1: 40, x2: W - 24, y2: 40 },
-      { x1: 24, y1: 40, x2: 24, y2: H - 80 },
-      { x1: W - 24, y1: 40, x2: W - 24, y2: H - 80 },
-    ]
+
+    function flipperSeg(side) {
+      const f = S.fl[side], ca = Math.cos(f.a), sa = Math.sin(f.a)
+      return { x1: f.x, y1: f.y, x2: f.x + FLIP_LEN*ca, y2: f.y + FLIP_LEN*sa, nx: -sa, ny: ca }
+    }
+
+    function distToSeg(px, py, x1, y1, x2, y2) {
+      const dx = x2-x1, dy = y2-y1, len2 = dx*dx+dy*dy
+      if (!len2) return Math.hypot(px-x1, py-y1)
+      let t = ((px-x1)*dx + (py-y1)*dy)/len2
+      t = Math.max(0, Math.min(1, t))
+      return Math.hypot(px-(x1+t*dx), py-(y1+t*dy))
+    }
+
+    function closestOnSeg(px, py, x1, y1, x2, y2) {
+      const dx = x2-x1, dy = y2-y1, len2 = dx*dx+dy*dy
+      if (!len2) return { x: x1, y: y1, t: 0 }
+      let t = ((px-x1)*dx + (py-y1)*dy)/len2
+      t = Math.max(0, Math.min(1, t))
+      return { x: x1+t*dx, y: y1+t*dy, t }
+    }
 
     function setup() {
       for (let r = 0; r < 3; r++)
         for (let c = 0; c < 4; c++)
-          state.bumpers.push({
-            x: 75 + c * 70 + (r % 2) * 35, y: 90 + r * 65,
-            r: 20, pts: 100 + r * 50, hit: 0
+          S.bumpers.push({
+            x: 75+c*70+(r%2)*35, y: 90+r*65,
+            r: 20, pts: 100+r*50, hit: 0, color: '#f80'
           })
       for (let r = 0; r < 2; r++)
         for (let c = 0; c < 3; c++)
-          state.pops.push({
-            x: 90 + c * 100 + (r % 2) * 50, y: 300 + r * 55,
-            r: 14, pts: 50, hit: 0
+          S.pops.push({
+            x: 90+c*100+(r%2)*50, y: 310+r*55,
+            r: 14, pts: 50, hit: 0, color: '#08c'
           })
-      state.stars = [
-        { x: W / 2, y: 55, r: 12, active: true, timer: 0 },
-        { x: 50, y: 52, r: 10, active: true, timer: 0 },
-        { x: W - 50, y: 52, r: 10, active: true, timer: 0 },
+      S.targets = [
+        { x: 60, y: 210, w: 16, h: 28, pts: 200, up: true, timer: 0 },
+        { x: W/2-8, y: 200, w: 16, h: 28, pts: 300, up: true, timer: 0 },
+        { x: W-76, y: 210, w: 16, h: 28, pts: 200, up: true, timer: 0 },
+      ]
+      S.stars = [
+        { x: W/2, y: 55, r: 12, active: true, timer: 0 },
+        { x: 52, y: 52, r: 10, active: true, timer: 0 },
+        { x: W-52, y: 52, r: 10, active: true, timer: 0 },
       ]
     }
     setup()
 
-    function resetBall() {
-      return { x: W / 2, y: H - 170, vx: (Math.random() - 0.5) * 1.5, vy: -6, r: BALL_R, trail: [] }
+    function newBall() {
+      return { x: W/2, y: H-180, vx: (Math.random()-0.5)*1.5, vy: -5, r: BALL_R, trail: [] }
     }
 
-    function freshBall() { state.ball = resetBall(); state.balls = [state.ball]; state.game = 'launch'; state.plunger.power = 0; state.plunger.pct = 0 }
+    function resetBall() {
+      S.ball = newBall()
+      S.phase = 'launch'
+      S.plunger.power = 0
+      S.plunger.pct = 0
+    }
 
     function launch() {
-      if (state.game === 'launch' && state.lives > 0) {
-        const pwr = 4 + state.plunger.power * 0.06
-        state.ball.vy = -pwr
-        state.ball.vx = (Math.random() - 0.5) * 1.2
-        state.game = 'playing'
-        sLaunch()
-        state.ballSave = true; state.ballSaveTimer = 90
-      } else if (state.game === 'over') {
-        state.lives = 3; state.score = 0; state.multi = 1; state.multiTimer = 0
-        freshBall()
-        state.game = 'launch'
+      if (S.phase === 'launch' && S.lives > 0) {
+        const pwr = 3.5 + S.plunger.power * 0.05
+        S.ball.vy = -pwr
+        S.ball.vx += (Math.random()-0.5)*0.8
+        S.phase = 'playing'
+        SFX.launch()
+        S.ballSave = true; S.ballSaveTimer = 120
+      } else if (S.phase === 'over') {
+        S.lives = 3; S.score = 0; S.multi = 1; S.multiTimer = 0; S.particles = []; S.floatTexts = []
+        resetBall()
       }
     }
 
-    function addParticles(x, y, color, count = 12, speed = 3) {
-      for (let i = 0; i < count; i++) {
-        const a = Math.random() * Math.PI * 2, s = Math.random() * speed + 1
-        state.particles.push({
-          x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1,
-          life: 1, decay: 0.015 + Math.random() * 0.02,
-          r: 2 + Math.random() * 3, color,
-        })
+    function addParticles(x, y, color, n=12, sp=3) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random()*Math.PI*2, s = Math.random()*sp+1
+        S.particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s-1, life: 1, decay: 0.015+Math.random()*0.02, r: 2+Math.random()*3, color })
       }
     }
-    function addFloat(x, y, text, color = '#ffd700') {
-      state.floatTexts.push({ x, y, text, color, life: 1, vy: -1.5 })
+    function addFloat(x, y, text, color='#ffd700') {
+      S.floatTexts.push({ x, y, text, color, life: 1, vy: -1.5 })
     }
 
     const KEYS = { left: false, right: false }
     const TCH = { left: false, right: false, center: false }
 
     window.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') { KEYS.left = true; e.preventDefault() }
-      if (e.key === 'ArrowRight' || e.key === 'd') { KEYS.right = true; e.preventDefault() }
-      if (e.key === ' ' || e.key === 'ArrowDown') { if (state.game === 'launch') { state.plunger.charging = true }; e.preventDefault() }
+      if (e.key === 'ArrowLeft'||e.key === 'a') { KEYS.left = true; e.preventDefault() }
+      if (e.key === 'ArrowRight'||e.key === 'd') { KEYS.right = true; e.preventDefault() }
+      if (e.key === ' '||e.key === 'ArrowDown') { if (S.phase === 'launch') S.plunger.charging = true; e.preventDefault() }
     })
     window.addEventListener('keyup', e => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') { KEYS.left = false; e.preventDefault() }
-      if (e.key === 'ArrowRight' || e.key === 'd') { KEYS.right = false; e.preventDefault() }
-      if (e.key === ' ' || e.key === 'ArrowDown') { state.plunger.charging = false; if (state.game === 'launch') { launch() }; e.preventDefault() }
+      if (e.key === 'ArrowLeft'||e.key === 'a') { KEYS.left = false; e.preventDefault() }
+      if (e.key === 'ArrowRight'||e.key === 'd') { KEYS.right = false; e.preventDefault() }
+      if (e.key === ' '||e.key === 'ArrowDown') { S.plunger.charging = false; if (S.phase === 'launch') launch(); e.preventDefault() }
     })
 
-    canvas.addEventListener('touchstart', e => {
+    C.addEventListener('touchstart', e => {
       const t = e.touches[0]; if (!t) return
-      const r = canvas.getBoundingClientRect()
-      const x = t.clientX - r.left, w = r.width
-      const centerW = w * 0.3
-      if (x > (w - centerW) / 2 && x < (w + centerW) / 2) {
-        if (state.game === 'launch') { state.plunger.charging = true }
-        else TCH.center = true
+      const r = C.getBoundingClientRect(), x = t.clientX - r.left, w = r.width
+      const cw = w*0.3
+      if (x > (w-cw)/2 && x < (w+cw)/2) {
+        if (S.phase === 'launch') S.plunger.charging = true
       } else {
-        TCH.left = x < w / 2; TCH.right = !TCH.left
+        TCH.left = x < w/2; TCH.right = !TCH.left
       }
-      if (state.game === 'over') launch()
+      if (S.phase === 'over') launch()
       e.preventDefault()
     }, { passive: false })
-    canvas.addEventListener('touchend', e => {
-      if (state.plunger.charging) { state.plunger.charging = false; launch() }
-      TCH.left = false; TCH.right = false; TCH.center = false
+    C.addEventListener('touchend', e => {
+      if (S.plunger.charging) { S.plunger.charging = false; launch() }
+      TCH.left = false; TCH.right = false
       e.preventDefault()
     }, { passive: false })
-    canvas.addEventListener('touchmove', e => {
+    C.addEventListener('touchmove', e => {
       const t = e.touches[0]; if (!t) return
-      const r = canvas.getBoundingClientRect()
-      const x = t.clientX - r.left
-      TCH.left = x < r.width / 2; TCH.right = !TCH.left
+      const r = C.getBoundingClientRect(), x = t.clientX - r.left
+      TCH.left = x < r.width/2; TCH.right = !TCH.left
       e.preventDefault()
     }, { passive: false })
-    canvas.addEventListener('mousedown', e => {
-      if (state.game === 'over') { launch(); return }
-      if (state.game === 'launch') { state.plunger.charging = true; return }
+    C.addEventListener('mousedown', e => {
+      if (S.phase === 'over') { launch(); return }
+      if (S.phase === 'launch') { S.plunger.charging = true; return }
     })
-    canvas.addEventListener('mouseup', e => {
-      if (state.plunger.charging) { state.plunger.charging = false; launch() }
+    C.addEventListener('mouseup', e => {
+      if (S.plunger.charging) { S.plunger.charging = false; launch() }
     })
 
     document.getElementById('resetBtn').addEventListener('click', () => {
-      state.lives = 3; state.score = 0; state.multi = 1; state.multiTimer = 0
-      state.particles = []; state.floatTexts = []
-      freshBall()
+      S.lives = 3; S.score = 0; S.multi = 1; S.multiTimer = 0; S.particles = []; S.floatTexts = []
+      S.targets.forEach(t => t.up = true)
+      S.stars.forEach(s => s.active = true)
+      resetBall()
     })
 
-    function flipperHit(fl, bx, by) {
-      const cos = Math.cos(fl.a), sin = Math.sin(fl.a)
-      const dx = bx - fl.x, dy = by - fl.y
-      const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos
-      const hw = FLIP_W / 2
-      if (lx >= -hw - 8 && lx <= hw + 8 && ly >= -FLIP_H / 2 - BALL_R && ly <= FLIP_H / 2 + BALL_R) {
-        if (ly > 0) return { hit: true, lx, push: lx / hw }
-      }
-      return { hit: false }
-    }
-
-    function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1) }
-
     function collideCircle(bx, by, br, cx, cy, cr) {
-      const d = dist(bx, by, cx, cy)
-      if (d < br + cr) {
-        const nx = (bx - cx) / d, ny = (by - cy) / d
-        return { hit: true, nx, ny, overlap: br + cr - d }
+      const d = Math.hypot(bx-cx, by-cy)
+      if (d < br+cr) {
+        const nx = (bx-cx)/d, ny = (by-cy)/d
+        return { hit: true, nx, ny, overlap: br+cr-d }
       }
       return { hit: false }
     }
 
     function update() {
-      state.frame++
-      const fl = state.fl
+      S.frame++
       const lAct = KEYS.left || TCH.left
       const rAct = KEYS.right || TCH.right
-      if (lAct !== (fl.L.t === -0.5)) { if (lAct) sFlipper() }
-      if (rAct !== (fl.R.t === 0.5)) { if (rAct) sFlipper() }
+      const fl = S.fl
+
       fl.L.t = lAct ? -0.5 : 0.45
-      fl.R.t = rAct ? 0.5 : -0.45
-      fl.L.a += (fl.L.t - fl.L.a) * 0.35
-      fl.R.a += (fl.R.t - fl.R.a) * 0.35
+      fl.R.t = rAct ? Math.PI+0.5 : Math.PI-0.45
+      fl.L.a += (fl.L.t - fl.L.a) * 0.3
+      fl.R.a += (fl.R.t - fl.R.a) * 0.3
 
-      if (state.plunger.charging) {
-        state.plunger.power = Math.min(state.plunger.power + 3, 100)
-        state.plunger.pct = state.plunger.power / 100
+      if (S.plunger.charging) {
+        S.plunger.power = Math.min(S.plunger.power + 2.5, 100)
+        S.plunger.pct = S.plunger.power/100
       }
+      if (S.ballSaveTimer > 0) { S.ballSaveTimer--; if (!S.ballSaveTimer) S.ballSave = false }
+      if (S.multiTimer > 0) { S.multiTimer--; if (!S.multiTimer) S.multi = 1 }
 
-      if (state.ballSaveTimer > 0) { state.ballSaveTimer--; if (state.ballSaveTimer === 0) state.ballSave = false }
-      if (state.multiTimer > 0) { state.multiTimer--; if (state.multiTimer === 0) state.multi = 1 }
+      if (S.phase !== 'playing' || !S.ball) return
 
-      if (state.game !== 'playing' || !state.ball) return
-
-      const b = state.ball
-      b.vy += 0.14
+      const b = S.ball
+      b.vy += GRAV
       b.vx *= 0.995; b.vy *= 0.995
       b.x += b.vx; b.y += b.vy
       b.trail.push({ x: b.x, y: b.y })
-      if (b.trail.length > 8) b.trail.shift()
+      if (b.trail.length > 10) b.trail.shift()
 
-      const S = state.shake
-      if (S > 0) state.shake *= 0.85
-      if (state.shake < 0.5) state.shake = 0
+      if (S.shake > 0.5) S.shake *= 0.85; else S.shake = 0
 
-      if (b.y + b.r > H - 14) {
-        if (state.ballSave) { b.y = H - 100; b.vy = -3; b.vx = (Math.random() - 0.5) * 2; state.ballSave = false; addFloat(W/2, H/2, 'SALVO!', '#00ff88'); return }
-        sDrain()
-        state.lives--
-        addParticles(b.x, b.y, '#ff4444', 20, 4); state.shake = 6
-        if (state.lives <= 0) { state.game = 'over'; b.trail = []; return }
-        freshBall()
+      if (b.y + b.r > DRAIN_Y) {
+        if (S.ballSave) {
+          b.y = H-130; b.vy = -3; b.vx = (Math.random()-0.5)*2
+          S.ballSave = false; addFloat(W/2, H/2, 'SALVO!', '#0f8')
+          return
+        }
+        SFX.drain(); S.lives--
+        addParticles(b.x, b.y, '#f44', 20, 4); S.shake = 6
+        if (S.lives <= 0) { S.phase = 'over'; b.trail = []; return }
+        resetBall()
         return
       }
 
-      if (b.x - b.r < 5) { b.x = b.r + 5; b.vx = Math.abs(b.vx) * 0.7 }
-      if (b.x + b.r > W - 5) { b.x = W - b.r - 5; b.vx = -Math.abs(b.vx) * 0.7 }
-      if (b.y - b.r < 35) { b.y = b.r + 35; b.vy = Math.abs(b.vy) * 0.7 }
+      if (b.x-b.r < 5) { b.x = b.r+5; b.vx = Math.abs(b.vx)*0.7 }
+      if (b.x+b.r > W-5) { b.x = W-b.r-5; b.vx = -Math.abs(b.vx)*0.7 }
+      if (b.y-b.r < 35) { b.y = b.r+35; b.vy = Math.abs(b.vy)*0.7 }
 
       for (const w of WALLS) {
-        const dx = w.x2 - w.x1, dy = w.y2 - w.y1, len = Math.hypot(dx, dy)
-        const nx = -dy / len, ny = dx / len
-        const d = (b.x - w.x1) * nx + (b.y - w.y1) * ny
+        const dx = w.x2-w.x1, dy = w.y2-w.y1, len = Math.hypot(dx, dy)
+        const nx = -dy/len, ny = dx/len
+        const d = (b.x-w.x1)*nx + (b.y-w.y1)*ny
         if (Math.abs(d) < b.r) {
-          const t = ((b.x - w.x1) * dx + (b.y - w.y1) * dy) / (len * len)
+          const t = ((b.x-w.x1)*dx + (b.y-w.y1)*dy)/(len*len)
           if (t >= 0 && t <= 1) {
-            const dot = b.vx * nx + b.vy * ny
+            const dot = b.vx*nx + b.vy*ny
             if (dot < 0) {
-              b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny
-              b.vx *= 0.92; b.vy *= 0.92
-              b.x += nx * (b.r - Math.abs(d) + 1)
-              b.y += ny * (b.r - Math.abs(d) + 1)
+              b.vx -= 2*dot*nx; b.vy -= 2*dot*ny
+              b.vx *= 0.9; b.vy *= 0.9
+              b.x += nx*(b.r-Math.abs(d)+1)
+              b.y += ny*(b.r-Math.abs(d)+1)
             }
           }
         }
       }
 
       for (const side of ['L', 'R']) {
-        const f = fl[side]
-        const cos = Math.cos(f.a), sin = Math.sin(f.a)
-        const dx = b.x - f.x, dy = b.y - f.y
-        const lx = dx * cos + dy * sin
-        const ly = -dx * sin + dy * cos
-        const hw = FLIP_W / 2
-        if (lx > -hw - BALL_R && lx < hw + BALL_R && Math.abs(ly) < FLIP_H / 2 + BALL_R) {
-          const pushDir = ly >= 0 ? 1 : -1
-          const nx = -sin * pushDir, ny = cos * pushDir
-          b.x += nx * (FLIP_H / 2 + BALL_R - Math.abs(ly) + 1)
-          b.y += ny * (FLIP_H / 2 + BALL_R - Math.abs(ly) + 1)
-          const dot = b.vx * nx + b.vy * ny
+        const seg = flipperSeg(side)
+        const dist = distToSeg(b.x, b.y, seg.x1, seg.y1, seg.x2, seg.y2)
+        const threshold = BALL_R + FLIP_W/2
+        if (dist < threshold) {
+          const cp = closestOnSeg(b.x, b.y, seg.x1, seg.y1, seg.x2, seg.y2)
+          const nx = (b.x-cp.x)/dist || seg.nx
+          const ny = (b.y-cp.y)/dist || seg.ny
+          const overlap = threshold - dist
+          b.x += nx*overlap; b.y += ny*overlap
+          const dot = b.vx*nx + b.vy*ny
           if (dot < 0) {
-            b.vx -= 1.5 * dot * nx; b.vy -= 1.5 * dot * ny
+            b.vx -= 1.8*dot*nx; b.vy -= 1.8*dot*ny
           }
-          if ((side === 'L' && lAct) || (side === 'R' && rAct)) {
-            b.vx += nx * 7; b.vy += ny * 7
-            sFlipper()
+          const isAct = (side === 'L' && lAct) || (side === 'R' && rAct)
+          if (isAct) {
+            b.vx += nx*5; b.vy += ny*5
+            SFX.flipper()
           }
         }
       }
 
-      for (const bumper of state.bumpers) {
+      for (const bumper of S.bumpers) {
         const c = collideCircle(b.x, b.y, b.r, bumper.x, bumper.y, bumper.r)
         if (c.hit) {
-          const dot = b.vx * c.nx + b.vy * c.ny
+          const dot = b.vx*c.nx + b.vy*c.ny
           if (dot < 0) {
-            b.vx -= 2 * dot * c.nx * 1.4; b.vy -= 2 * dot * c.ny * 1.4
-            b.x = bumper.x + c.nx * (bumper.r + b.r + 2)
-            b.y = bumper.y + c.ny * (bumper.r + b.r + 2)
-            const pts = Math.floor(bumper.pts * state.multi)
-            state.score += pts; bumper.hit = 20
-            sBumper(); addParticles(bumper.x, bumper.y, '#ff8800', 8, 3)
-            addFloat(bumper.x, bumper.y - 15, `+${pts}`, '#ffcc00')
-            state.shake = Math.max(state.shake, 2)
+            b.vx -= 2*dot*c.nx*1.3; b.vy -= 2*dot*c.ny*1.3
+            b.x = bumper.x + c.nx*(bumper.r+b.r+1)
+            b.y = bumper.y + c.ny*(bumper.r+b.r+1)
+            const pts = Math.floor(bumper.pts*S.multi)
+            S.score += pts; bumper.hit = 20
+            SFX.bumper(); addParticles(bumper.x, bumper.y, '#f80', 8, 3)
+            addFloat(bumper.x, bumper.y-15, `+${pts}`, '#fc0')
+            S.shake = Math.max(S.shake, 2)
           }
         }
         if (bumper.hit > 0) bumper.hit--
       }
 
-      for (const pop of state.pops) {
+      for (const pop of S.pops) {
         const c = collideCircle(b.x, b.y, b.r, pop.x, pop.y, pop.r)
         if (c.hit) {
-          const dot = b.vx * c.nx + b.vy * c.ny
+          const dot = b.vx*c.nx + b.vy*c.ny
           if (dot < 0) {
-            b.vx -= 2 * dot * c.nx * 1.2; b.vy -= 2 * dot * c.ny * 1.2
-            b.x = pop.x + c.nx * (pop.r + b.r + 1)
-            b.y = pop.y + c.ny * (pop.r + b.r + 1)
-            const pts = Math.floor(pop.pts * state.multi)
-            state.score += pts; pop.hit = 15
-            sfx(300 + Math.random() * 200, 0.06, 'sine', 0.06)
-            addParticles(pop.x, pop.y, '#00ddff', 6, 2)
+            b.vx -= 2*dot*c.nx*1.2; b.vy -= 2*dot*c.ny*1.2
+            b.x = pop.x + c.nx*(pop.r+b.r+1)
+            b.y = pop.y + c.ny*(pop.r+b.r+1)
+            const pts = Math.floor(pop.pts*S.multi)
+            S.score += pts; pop.hit = 15
+            SFX.target(); addParticles(pop.x, pop.y, '#0cf', 6, 2)
           }
         }
         if (pop.hit > 0) pop.hit--
       }
 
-      for (const star of state.stars) {
+      for (const star of S.stars) {
         if (!star.active) continue
         const c = collideCircle(b.x, b.y, b.r, star.x, star.y, star.r)
         if (c.hit) {
           star.active = false; star.timer = 300
-          state.multi = Math.min(state.multi + 0.5, 5); state.multiTimer = 600
-          state.score += 250
-          sMulti()
-          addParticles(star.x, star.y, '#ffd700', 20, 5)
-          addFloat(star.x, star.y - 20, `x${state.multi}`, '#ffd700')
-          state.shake = 3
-          const dot = b.vx * c.nx + b.vy * c.ny
-          if (dot < 0) { b.vx -= 2 * dot * c.nx; b.vy -= 2 * dot * c.ny }
-          b.x = star.x + c.nx * (star.r + b.r + 1)
-          b.y = star.y + c.ny * (star.r + b.r + 1)
+          S.multi = Math.min(S.multi+0.5, 5); S.multiTimer = 600
+          S.score += 250
+          SFX.multi(); addParticles(star.x, star.y, '#fd0', 20, 5)
+          addFloat(star.x, star.y-20, `x${S.multi}`, '#fd0')
+          S.shake = 3
+          const dot = b.vx*c.nx + b.vy*c.ny
+          if (dot < 0) { b.vx -= 2*dot*c.nx; b.vy -= 2*dot*c.ny }
+          b.x = star.x+c.nx*(star.r+b.r+1)
+          b.y = star.y+c.ny*(star.r+b.r+1)
         }
       }
-      for (const star of state.stars) {
-        if (!star.active && star.timer > 0) { star.timer--; if (star.timer === 0) star.active = true }
+      for (const star of S.stars) {
+        if (!star.active && star.timer > 0) { star.timer--; if (!star.timer) star.active = true }
       }
 
-      const speed = Math.hypot(b.vx, b.vy)
-      if (speed > 14) { b.vx = (b.vx / speed) * 14; b.vy = (b.vy / speed) * 14 }
+      for (const t of S.targets) {
+        if (!t.up) {
+          if (t.timer > 0) t.timer--
+          else t.up = true
+          continue
+        }
+        if (b.x+b.r > t.x && b.x-b.r < t.x+t.w && b.y+b.r > t.y && b.y-b.r < t.y+t.h) {
+          t.up = false; t.timer = 180
+          const pts = Math.floor(t.pts*S.multi)
+          S.score += pts
+          SFX.target(); addParticles(t.x+t.w/2, t.y+t.h/2, '#0f8', 10, 3)
+          addFloat(t.x+t.w/2, t.y-5, `+${pts}`, '#0f8')
+          S.shake = 2
+          b.vy = -Math.abs(b.vy)*0.8
+          b.y = t.y+t.h+b.r+1
+        }
+      }
+
+      const spd = Math.hypot(b.vx, b.vy)
+      if (spd > 15) { b.vx = (b.vx/spd)*15; b.vy = (b.vy/spd)*15 }
     }
 
     function draw() {
-      ctx.save()
-      if (state.shake > 0.5) {
-        const sx = (Math.random() - 0.5) * state.shake * 2
-        const sy = (Math.random() - 0.5) * state.shake * 2
-        ctx.translate(sx, sy)
+      X.save()
+      if (S.shake > 0.5) {
+        X.translate((Math.random()-0.5)*S.shake*2, (Math.random()-0.5)*S.shake*2)
       }
 
-      const bg = ctx.createRadialGradient(W / 2, H / 2, 100, W / 2, H / 2, 500)
+      const bg = X.createRadialGradient(W/2, H/2, 100, W/2, H/2, 500)
       bg.addColorStop(0, '#12123a'); bg.addColorStop(0.5, '#0a0a2e'); bg.addColorStop(1, '#050520')
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
+      X.fillStyle = bg; X.fillRect(0, 0, W, H)
 
       for (let i = 0; i < 30; i++) {
-        const sx = (i * 137 + 50) % W, sy = (i * 97 + 30) % H
-        ctx.fillStyle = `rgba(255,255,255,${0.03 + Math.sin(state.frame * 0.02 + i) * 0.02})`
-        ctx.beginPath(); ctx.arc(sx, sy, 1, 0, Math.PI * 2); ctx.fill()
+        const sx = (i*137+50)%W, sy = (i*97+30)%H
+        X.fillStyle = `rgba(255,255,255,${0.03+Math.sin(S.frame*0.02+i)*0.02})`
+        X.beginPath(); X.arc(sx, sy, 1, 0, Math.PI*2); X.fill()
       }
 
-      ctx.shadowColor = '#00c8ff'; ctx.shadowBlur = 15
-      ctx.strokeStyle = '#00c8ff'; ctx.lineWidth = 3
-      ctx.shadowBlur = 25
-      ctx.beginPath(); ctx.roundRect(10, 30, W - 20, H - 80, 12); ctx.stroke()
-      ctx.shadowBlur = 0
+      X.shadowColor = '#0cf'; X.shadowBlur = 15
+      X.strokeStyle = '#0cf'; X.lineWidth = 3; X.shadowBlur = 25
+      X.beginPath(); X.roundRect(10, 30, W-20, H-80, 12); X.stroke()
+      X.shadowBlur = 0
 
       for (const w of WALLS) {
-        ctx.strokeStyle = '#ff6644'; ctx.lineWidth = 4; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 8
-        ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke()
-        ctx.shadowBlur = 0
+        X.strokeStyle = '#f64'; X.lineWidth = 4; X.shadowColor = '#f44'; X.shadowBlur = 8
+        X.beginPath(); X.moveTo(w.x1, w.y1); X.lineTo(w.x2, w.y2); X.stroke()
+        X.shadowBlur = 0
       }
 
-      const fl = state.fl
       for (const side of ['L', 'R']) {
-        const f = fl[side]
-        ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a)
-        ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 20
-        const grd = ctx.createLinearGradient(-FLIP_W / 2, 0, FLIP_W / 2, 0)
-        grd.addColorStop(0, '#ff2222'); grd.addColorStop(0.5, '#ff6644'); grd.addColorStop(1, '#ff2222')
-        ctx.fillStyle = grd
-        ctx.beginPath()
-        ctx.moveTo(-FLIP_W / 2, -FLIP_R)
-        ctx.quadraticCurveTo(-FLIP_W / 2 - 10, 0, -FLIP_W / 2, FLIP_R)
-        ctx.lineTo(FLIP_W / 2, FLIP_R)
-        ctx.quadraticCurveTo(FLIP_W / 2 + 10, 0, FLIP_W / 2, -FLIP_R)
-        ctx.closePath(); ctx.fill()
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke()
-        ctx.shadowBlur = 0; ctx.restore()
+        const f = S.fl[side]
+        const seg = flipperSeg(side)
+        X.save()
+        X.shadowColor = '#f33'; X.shadowBlur = 20
+        const grd = X.createLinearGradient(seg.x1, seg.y1, seg.x2, seg.y2)
+        grd.addColorStop(0, '#f22'); grd.addColorStop(0.5, '#f64'); grd.addColorStop(1, '#f22')
+        X.strokeStyle = grd; X.lineWidth = FLIP_W
+        X.lineCap = 'round'
+        X.beginPath(); X.moveTo(seg.x1, seg.y1); X.lineTo(seg.x2, seg.y2); X.stroke()
+        X.strokeStyle = '#fff'; X.lineWidth = 2
+        X.beginPath(); X.moveTo(seg.x1, seg.y1); X.lineTo(seg.x2, seg.y2); X.stroke()
+        X.shadowBlur = 0; X.restore()
       }
 
-      for (const bumper of state.bumpers) {
-        const isHit = bumper.hit > 0
-        ctx.shadowColor = isHit ? '#ffff00' : '#ff8800'
-        ctx.shadowBlur = isHit ? 35 : 18
-        const bg = ctx.createRadialGradient(bumper.x - 4, bumper.y - 4, 2, bumper.x, bumper.y, bumper.r + 4)
-        if (isHit) { bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#ff0'); bg.addColorStop(1, '#f80') }
-        else { bg.addColorStop(0, '#fc0'); bg.addColorStop(0.4, '#f80'); bg.addColorStop(1, '#c40') }
-        ctx.fillStyle = bg
-        ctx.beginPath(); ctx.arc(bumper.x, bumper.y, bumper.r + 2, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke()
-        ctx.shadowBlur = 0
-        ctx.fillStyle = isHit ? '#fff' : '#ffd700'
-        ctx.font = 'bold 12px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(bumper.pts, bumper.x, bumper.y)
+      for (const bumper of S.bumpers) {
+        const hit = bumper.hit > 0
+        X.shadowColor = hit ? '#ff0' : '#f80'; X.shadowBlur = hit ? 35 : 18
+        const bg = X.createRadialGradient(bumper.x-4, bumper.y-4, 2, bumper.x, bumper.y, bumper.r+4)
+        if (hit) { bg.addColorStop(0,'#fff'); bg.addColorStop(0.3,'#ff0'); bg.addColorStop(1,'#f80') }
+        else { bg.addColorStop(0,'#fc0'); bg.addColorStop(0.4,'#f80'); bg.addColorStop(1,'#c40') }
+        X.fillStyle = bg; X.beginPath(); X.arc(bumper.x, bumper.y, bumper.r+2, 0, Math.PI*2); X.fill()
+        X.strokeStyle = '#fff'; X.lineWidth = 2; X.stroke(); X.shadowBlur = 0
+        X.fillStyle = hit ? '#fff' : '#fd0'
+        X.font = 'bold 12px "Fredoka One", sans-serif'; X.textAlign = 'center'; X.textBaseline = 'middle'
+        X.fillText(bumper.pts, bumper.x, bumper.y)
       }
 
-      for (const pop of state.pops) {
-        const isHit = pop.hit > 0
-        ctx.shadowColor = isHit ? '#00eeff' : '#0088cc'
-        ctx.shadowBlur = isHit ? 25 : 12
-        ctx.fillStyle = isHit ? '#88eeff' : '#2266aa'
-        ctx.beginPath(); ctx.arc(pop.x, pop.y, pop.r, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = '#00ccff'; ctx.lineWidth = 2; ctx.stroke()
-        ctx.shadowBlur = 0
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 9px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(pop.pts, pop.x, pop.y + 1)
+      for (const pop of S.pops) {
+        const hit = pop.hit > 0
+        X.shadowColor = hit ? '#0ef' : '#08c'; X.shadowBlur = hit ? 25 : 12
+        X.fillStyle = hit ? '#8ef' : '#26a'
+        X.beginPath(); X.arc(pop.x, pop.y, pop.r, 0, Math.PI*2); X.fill()
+        X.strokeStyle = '#0cf'; X.lineWidth = 2; X.stroke(); X.shadowBlur = 0
+        X.fillStyle = '#fff'; X.font = 'bold 9px "Fredoka One", sans-serif'; X.textAlign = 'center'; X.textBaseline = 'middle'
+        X.fillText(pop.pts, pop.x, pop.y+1)
       }
 
-      for (const star of state.stars) {
+      for (const star of S.stars) {
         if (!star.active) continue
-        const pulse = 1 + Math.sin(state.frame * 0.05) * 0.15
-        ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 25
-        ctx.fillStyle = '#ffd700'
-        ctx.beginPath(); ctx.arc(star.x, star.y, star.r * pulse, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = '#fff'
-        ctx.font = 'bold 14px sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText('★', star.x, star.y + 1)
-        ctx.shadowBlur = 0
-        ctx.fillStyle = 'rgba(255,215,0,0.3)'
-        ctx.font = '10px "Press Start 2P", monospace'
-        ctx.fillText('MULTI', star.x, star.y + star.r + 14)
+        const pulse = 1+Math.sin(S.frame*0.05)*0.15
+        X.shadowColor = '#fd0'; X.shadowBlur = 25
+        X.fillStyle = '#fd0'; X.beginPath(); X.arc(star.x, star.y, star.r*pulse, 0, Math.PI*2); X.fill()
+        X.fillStyle = '#fff'; X.font = 'bold 14px sans-serif'; X.textAlign = 'center'; X.textBaseline = 'middle'
+        X.fillText('★', star.x, star.y+1); X.shadowBlur = 0
+        X.fillStyle = 'rgba(255,215,0,0.3)'; X.font = '10px "Press Start 2P", monospace'
+        X.fillText('MULTI', star.x, star.y+star.r+14)
       }
 
-      if (state.ball) {
-        const b = state.ball
+      for (const t of S.targets) {
+        if (!t.up) {
+          X.fillStyle = 'rgba(0,255,136,0.2)'; X.shadowBlur = 0
+          X.beginPath(); X.roundRect(t.x, t.y, t.w, t.h, 3); X.fill()
+          continue
+        }
+        X.shadowColor = '#0f8'; X.shadowBlur = 15
+        const bg = X.createLinearGradient(t.x, t.y, t.x, t.y+t.h)
+        bg.addColorStop(0, '#0f8'); bg.addColorStop(1, '#080')
+        X.fillStyle = bg; X.beginPath(); X.roundRect(t.x, t.y, t.w, t.h, 3); X.fill()
+        X.strokeStyle = '#fff'; X.lineWidth = 1.5; X.stroke(); X.shadowBlur = 0
+        X.fillStyle = '#fff'; X.font = 'bold 10px sans-serif'; X.textAlign = 'center'; X.textBaseline = 'middle'
+        X.fillText(t.pts, t.x+t.w/2, t.y+t.h/2)
+      }
+
+      if (S.ball) {
+        const b = S.ball
         for (let i = 0; i < b.trail.length; i++) {
-          const t = b.trail[i], a = i / b.trail.length
-          ctx.fillStyle = `rgba(0,255,136,${a * 0.3})`
-          ctx.beginPath(); ctx.arc(t.x, t.y, b.r * a * 0.6, 0, Math.PI * 2); ctx.fill()
+          const tr = b.trail[i], a = i/b.trail.length
+          X.fillStyle = `rgba(0,255,136,${a*0.3})`
+          X.beginPath(); X.arc(tr.x, tr.y, b.r*a*0.6, 0, Math.PI*2); X.fill()
         }
-        if (state.game === 'playing' || state.game === 'launch') {
-          ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 25
-          const bg = ctx.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, b.r + 2)
-          bg.addColorStop(0, '#fff'); bg.addColorStop(0.3, '#8fc'); bg.addColorStop(1, '#0f8')
-          ctx.fillStyle = bg
-          ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 1, 0, Math.PI * 2); ctx.fill()
-          ctx.shadowBlur = 0
+        if (S.phase === 'playing' || S.phase === 'launch') {
+          X.shadowColor = '#0f8'; X.shadowBlur = 25
+          const bg = X.createRadialGradient(b.x-3, b.y-3, 1, b.x, b.y, b.r+2)
+          bg.addColorStop(0,'#fff'); bg.addColorStop(0.3,'#8fc'); bg.addColorStop(1,'#0f8')
+          X.fillStyle = bg; X.beginPath(); X.arc(b.x, b.y, b.r+1, 0, Math.PI*2); X.fill()
+          X.shadowBlur = 0
         }
       }
 
-      for (const p of state.particles) {
-        ctx.globalAlpha = p.life
-        ctx.fillStyle = p.color
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill()
+      for (const p of S.particles) {
+        X.globalAlpha = p.life; X.fillStyle = p.color
+        X.beginPath(); X.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2); X.fill()
       }
-      ctx.globalAlpha = 1
+      X.globalAlpha = 1
 
-      for (const ft of state.floatTexts) {
-        ctx.globalAlpha = ft.life
-        ctx.fillStyle = ft.color
-        ctx.font = 'bold 16px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4
-        ctx.fillText(ft.text, ft.x, ft.y)
-        ctx.shadowBlur = 0
+      for (const ft of S.floatTexts) {
+        X.globalAlpha = ft.life; X.fillStyle = ft.color
+        X.font = 'bold 16px "Fredoka One", sans-serif'; X.textAlign = 'center'; X.textBaseline = 'middle'
+        X.shadowColor = 'rgba(0,0,0,0.5)'; X.shadowBlur = 4
+        X.fillText(ft.text, ft.x, ft.y); X.shadowBlur = 0
       }
-      ctx.globalAlpha = 1
+      X.globalAlpha = 1
 
-      if (state.game === 'launch' && state.lives > 0) {
-        const px = W / 2, py = H - 80
-        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.roundRect(px - 6, py - 50, 12, 60, 6); ctx.fill()
-        const fillPct = state.plunger.pct
-        const fh = 56 * fillPct
-        ctx.fillStyle = '#ff6644'; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 10
-        ctx.beginPath(); ctx.roundRect(px - 4, py + 4 - fh, 8, fh, 4); ctx.fill()
-        ctx.shadowBlur = 0
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
-        ctx.beginPath(); ctx.roundRect(px - 6, py - 50, 12, 60, 6); ctx.stroke()
-
-        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect(W/2-110, H/2-30, 220, 60, 12); ctx.fill()
-        ctx.fillStyle = '#00ff88'
-        ctx.font = 'bold 20px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText('SEGURE PARA LANÇAR', W / 2, H / 2)
+      if (S.phase === 'launch' && S.lives > 0) {
+        const px = W/2, py = H-80
+        X.fillStyle = 'rgba(0,0,0,0.5)'; X.beginPath(); X.roundRect(px-6, py-50, 12, 60, 6); X.fill()
+        const fh = 56 * S.plunger.pct
+        X.fillStyle = '#f64'; X.shadowColor = '#f44'; X.shadowBlur = 10
+        X.beginPath(); X.roundRect(px-4, py+4-fh, 8, fh, 4); X.fill(); X.shadowBlur = 0
+        X.strokeStyle = '#fff'; X.lineWidth = 2; X.beginPath(); X.roundRect(px-6, py-50, 12, 60, 6); X.stroke()
+        X.fillStyle = 'rgba(0,0,0,0.55)'; X.beginPath(); X.roundRect(W/2-110, H/2-30, 220, 60, 12); X.fill()
+        X.fillStyle = '#0f8'; X.font = 'bold 20px "Fredoka One", sans-serif'; X.textAlign = 'center'; X.textBaseline = 'middle'
+        X.fillText('SEGURE PARA LANÇAR', W/2, H/2)
       }
 
-      ctx.fillStyle = '#fff'
-      ctx.font = 'bold 16px "Fredoka One", sans-serif'
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
-      ctx.fillText(`SCORE: ${state.score}`, 14, 5)
-      ctx.textAlign = 'right'
-      ctx.fillText(`HI: ${state.hiScore}`, W - 14, 5)
-      ctx.shadowBlur = 0
-      ctx.textAlign = 'left'; ctx.fillText(`×${state.multi.toFixed(1)}`, 14, 24)
+      X.fillStyle = '#fff'; X.font = 'bold 16px "Fredoka One", sans-serif'; X.textAlign = 'left'; X.textBaseline = 'top'
+      X.shadowColor = 'rgba(0,0,0,0.7)'; X.shadowBlur = 4
+      X.fillText(`SCORE: ${S.score}`, 14, 5); X.textAlign = 'right'
+      X.fillText(`HI: ${S.hiScore}`, W-14, 5); X.shadowBlur = 0
+      X.textAlign = 'left'; X.fillText(`x${S.multi.toFixed(1)}`, 14, 24)
 
       let ls = ''
-      for (let i = 0; i < state.lives; i++) ls += '\u{1F7E2}'
-      for (let i = state.lives; i < 3; i++) ls += '\u{26AB}'
-      ctx.textAlign = 'right'
-      ctx.font = '14px sans-serif'
-      ctx.fillText(ls, W - 14, 6)
+      for (let i = 0; i < S.lives; i++) ls += '\u{1F7E2}'
+      for (let i = S.lives; i < 3; i++) ls += '\u{26AB}'
+      X.textAlign = 'right'; X.font = '14px sans-serif'
+      X.fillText(ls, W-14, 6)
 
-      if (state.ballSave) {
-        ctx.fillStyle = `rgba(0,255,136,${0.3 + Math.sin(state.frame * 0.1) * 0.2})`
-        ctx.font = '10px "Press Start 2P", monospace'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-        ctx.fillText('BALL SAVE', W / 2, H - 5)
+      if (S.ballSave) {
+        X.fillStyle = `rgba(0,255,136,${0.3+Math.sin(S.frame*0.1)*0.2})`
+        X.font = '10px "Press Start 2P", monospace'; X.textAlign = 'center'; X.textBaseline = 'bottom'
+        X.fillText('BALL SAVE', W/2, H-5)
       }
 
-      if (state.game === 'over') {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H)
-        const isNew = state.score > state.hiScore
-        if (isNew) { state.hiScore = state.score; localStorage.setItem(HS_KEY, String(state.hiScore)) }
-        ctx.fillStyle = '#ff4444'; ctx.font = 'bold 36px "Fredoka One", sans-serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 20
-        ctx.fillText('GAME OVER', W / 2, H / 2 - 40)
-        ctx.shadowBlur = 0
-        if (isNew) {
-          ctx.fillStyle = '#ffd700'
-          ctx.font = 'bold 18px "Press Start 2P", monospace'
-          ctx.fillText('★ NOVO RECORDE! ★', W / 2, H / 2 + 10)
-        }
-        ctx.fillStyle = '#00ff88'
-        ctx.font = 'bold 22px "Fredoka One", sans-serif'
-        ctx.fillText(`SCORE: ${state.score}`, W / 2, H / 2 + 50)
-        ctx.fillStyle = 'rgba(255,255,255,0.5)'
-        ctx.font = '14px "Fredoka One", sans-serif'
-        ctx.fillText(`Melhor: ${state.hiScore}`, W / 2, H / 2 + 80)
-        ctx.fillStyle = '#ffd700'
-        ctx.font = '14px "Press Start 2P", monospace'
-        ctx.fillText('TOQUE PARA JOGAR', W / 2, H / 2 + 125)
+      if (S.phase === 'over') {
+        X.fillStyle = 'rgba(0,0,0,0.7)'; X.fillRect(0, 0, W, H)
+        const isNew = S.score > S.hiScore
+        if (isNew) { S.hiScore = S.score; localStorage.setItem(HS_KEY, String(S.hiScore)) }
+        X.fillStyle = '#f44'; X.font = 'bold 36px "Fredoka One", sans-serif'
+        X.textAlign = 'center'; X.textBaseline = 'middle'; X.shadowColor = '#f00'; X.shadowBlur = 20
+        X.fillText('GAME OVER', W/2, H/2-40); X.shadowBlur = 0
+        if (isNew) { X.fillStyle = '#fd0'; X.font = 'bold 18px "Press Start 2P", monospace'; X.fillText('★ NOVO RECORDE! ★', W/2, H/2+10) }
+        X.fillStyle = '#0f8'; X.font = 'bold 22px "Fredoka One", sans-serif'
+        X.fillText(`SCORE: ${S.score}`, W/2, H/2+50)
+        X.fillStyle = 'rgba(255,255,255,0.5)'; X.font = '14px "Fredoka One", sans-serif'
+        X.fillText(`Melhor: ${S.hiScore}`, W/2, H/2+80)
+        X.fillStyle = '#fd0'; X.font = '14px "Press Start 2P", monospace'
+        X.fillText('TOQUE PARA JOGAR', W/2, H/2+125)
       }
 
-      ctx.restore()
+      X.restore()
     }
 
     function updateParticles() {
-      for (const p of state.particles) {
-        p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.decay
-      }
-      state.particles = state.particles.filter(p => p.life > 0)
-      for (const ft of state.floatTexts) {
-        ft.y += ft.vy; ft.life -= 0.018
-      }
-      state.floatTexts = state.floatTexts.filter(ft => ft.life > 0)
+      for (const p of S.particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.decay }
+      S.particles = S.particles.filter(p => p.life > 0)
+      for (const ft of S.floatTexts) { ft.y += ft.vy; ft.life -= 0.018 }
+      S.floatTexts = S.floatTexts.filter(ft => ft.life > 0)
     }
 
     function loop() {
-      update()
-      updateParticles()
-      draw()
+      update(); updateParticles(); draw()
       requestAnimationFrame(loop)
     }
-    freshBall()
+    resetBall()
     loop()
   </script>
 </body>
