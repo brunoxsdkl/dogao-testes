@@ -47,7 +47,7 @@
     canvas.height = H
 
     const BALL_R = 7
-    const FLIP_W = 85, FLIP_H = 14, FLIP_R = 12
+    const FLIP_W = 200, FLIP_H = 14, FLIP_R = 18
 
     let actx = null
     function getAudio() {
@@ -77,7 +77,7 @@
       lives: 3, game: 'launch', // launch, playing, over
       shake: 0,
       ball: null, balls: [],
-      fl: { L: { a: 0.45, t: 0.45, x: 100, y: H - 60 }, R: { a: -0.45, t: -0.45, x: W - 100, y: H - 60 } },
+      fl: { L: { a: 0.45, t: 0.45, x: 95, y: H - 60 }, R: { a: -0.45, t: -0.45, x: 305, y: H - 60 } },
       bumpers: [], pops: [], stars: [], coins: [], particles: [], floatTexts: [],
       plunger: { pct: 0, charging: false, power: 0 },
       kickback: false, multi: 1, multiTimer: 0, ballSave: false, ballSaveTimer: 0,
@@ -301,17 +301,18 @@
         const lx = dx * cos + dy * sin
         const ly = -dx * sin + dy * cos
         const hw = FLIP_W / 2
-        if (lx > -hw - BALL_R && lx < hw + BALL_R && ly > -FLIP_H / 2 - BALL_R && ly < FLIP_H / 2 + BALL_R) {
-          const nx = -sin, ny = cos
-          if (b.vx * nx + b.vy * ny < 0) {
-            b.x += nx * (FLIP_H / 2 + BALL_R - ly)
-            b.y += ny * (FLIP_H / 2 + BALL_R - ly)
-            const dot = b.vx * nx + b.vy * ny
-            b.vx -= 1.2 * dot * nx; b.vy -= 1.2 * dot * ny
-            if ((side === 'L' && lAct) || (side === 'R' && rAct)) {
-              b.vx += nx * 6; b.vy += ny * 6
-              sFlipper()
-            }
+        if (lx > -hw - BALL_R && lx < hw + BALL_R && Math.abs(ly) < FLIP_H / 2 + BALL_R) {
+          const pushDir = ly >= 0 ? 1 : -1
+          const nx = -sin * pushDir, ny = cos * pushDir
+          b.x += nx * (FLIP_H / 2 + BALL_R - Math.abs(ly) + 1)
+          b.y += ny * (FLIP_H / 2 + BALL_R - Math.abs(ly) + 1)
+          const dot = b.vx * nx + b.vy * ny
+          if (dot < 0) {
+            b.vx -= 1.5 * dot * nx; b.vy -= 1.5 * dot * ny
+          }
+          if ((side === 'L' && lAct) || (side === 'R' && rAct)) {
+            b.vx += nx * 7; b.vy += ny * 7
+            sFlipper()
           }
         }
       }
