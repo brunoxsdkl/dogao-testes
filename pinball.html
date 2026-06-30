@@ -294,6 +294,28 @@
         }
       }
 
+      for (const side of ['L', 'R']) {
+        const f = fl[side]
+        const cos = Math.cos(f.a), sin = Math.sin(f.a)
+        const dx = b.x - f.x, dy = b.y - f.y
+        const lx = dx * cos + dy * sin
+        const ly = -dx * sin + dy * cos
+        const hw = FLIP_W / 2
+        if (lx > -hw - BALL_R && lx < hw + BALL_R && ly > -FLIP_H / 2 - BALL_R && ly < FLIP_H / 2 + BALL_R) {
+          const nx = -sin, ny = cos
+          if (b.vx * nx + b.vy * ny < 0) {
+            b.x += nx * (FLIP_H / 2 + BALL_R - ly)
+            b.y += ny * (FLIP_H / 2 + BALL_R - ly)
+            const dot = b.vx * nx + b.vy * ny
+            b.vx -= 1.2 * dot * nx; b.vy -= 1.2 * dot * ny
+            if ((side === 'L' && lAct) || (side === 'R' && rAct)) {
+              b.vx += nx * 6; b.vy += ny * 6
+              sFlipper()
+            }
+          }
+        }
+      }
+
       for (const bumper of state.bumpers) {
         const c = collideCircle(b.x, b.y, b.r, bumper.x, bumper.y, bumper.r)
         if (c.hit) {
